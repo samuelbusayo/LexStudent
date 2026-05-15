@@ -1,0 +1,25 @@
+# Environment
+server/.env
+
+# Database
+server/lexstudent.db
+*.db
+*.db-wal
+*.db-shm
+
+# Uploads
+server/uploads/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+client/dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
