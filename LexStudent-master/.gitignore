@@ -1,21 +1,21 @@
 # Environment
-server/.env
+.env
+.env.local
 
 # Database
-server/lexstudent.db
 *.db
 *.db-wal
 *.db-shm
 
 # Uploads
-server/uploads/
+web/server/uploads/
 
 # Dependencies
 node_modules/
 
 # Build output
 dist/
-client/dist/
+target/
 
 # Logs
 *.log
@@ -23,3 +23,11 @@ client/dist/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Tauri
+desktop/src-tauri/target/
+desktop/src-tauri/WixTools/
+desktop/src-tauri/icons/icon.ico.bak
+
+# IDE
+.claude/
