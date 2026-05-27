@@ -1,18 +1,24 @@
 {
-  "name": "lexstudent-desktop",
+  "name": "lexscholar-desktop",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
     "@tanstack/react-query": "^5.51.0",
+    "@blocknote/core": "^0.18.0",
+    "@blocknote/react": "^0.18.0",
+    "@blocknote/mantine": "^0.18.0",
+    "@mantine/core": "^7.14.0",
     "axios": "^1.7.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+faster-whisper
+silero-vad
+torch
+pyav
+pymupdf
+lancedb
+sentence-transformers
+llama-cpp-python
+huggingface-hub
+anthropic
+openai
+tiktoken
+pyinstaller

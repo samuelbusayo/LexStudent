@@ -1,9 +1,10 @@
 {
-  "name": "lexstudent",
+  "name": "lexscholar",
   "private": true,
   "version": "1.0.0",
-  "description": "LexStudent monorepo — web app and desktop (Tauri) app",
+  "description": "LexScholar monorepo — web app and desktop (Tauri v2) app with AI lecture transcription",
   "scripts": {
+    "web": "cd web && npm run dev",
     "web:install": "cd web && npm install && cd client && npm install && cd ../server && npm install",
     "web:dev": "cd web && npm run dev",
     "web:client": "cd web/client && npm run dev",

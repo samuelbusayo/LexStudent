@@ -14,3 +14,24 @@ export function useRecentProgress() {
     queryFn: () => api.get('/progress/recent').then((r) => r.data),
   })
 }
+
+export function useStreak() {
+  return useQuery({
+    queryKey: ['progress', 'streak'],
+    queryFn: () => api.get('/progress/streak').then((r) => r.data),
+  })
+}
+
+export function useKnowledgeGaps() {
+  return useQuery({
+    queryKey: ['progress', 'gaps'],
+    queryFn: () => api.get('/progress/gaps').then((r) => r.data),
+  })
+}
+
+export function useHeatmap() {
+  return useQuery({
+    queryKey: ['progress', 'heatmap'],
+    queryFn: () => api.get('/progress/heatmap').then((r) => r.data),
+  })
+}
