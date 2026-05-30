@@ -3,24 +3,103 @@ import { getDb } from "../db.js";
 
 const router = Router();
 
-// Get all notes across topics (for Personal Summaries on Revision page)
+// ─── Revision feed: one card per topic that has a summary or highlights ───
 router.get("/", (req, res) => {
   const db = getDb();
-  const notes = db.prepare(
-    `SELECT sn.id, sn.text, sn.page, sn.type, sn.created_at,
-            t.id as topic_id, t.name as topic_name,
-            c.id as course_id, c.name as course_name
-     FROM study_notes sn
-     JOIN topics t ON sn.topic_id = t.id
+  const rows = db.prepare(
+    `SELECT
+       t.id            AS topic_id,
+       t.name          AS topic_name,
+       c.id            AS course_id,
+       c.name          AS course_name,
+       ts.body         AS summary_body,
+       ts.updated_at   AS summary_updated_at,
+       (SELECT COUNT(*) FROM study_notes sn
+        WHERE sn.topic_id = t.id AND sn.type = 'highlight') AS highlight_count,
+       COALESCE(ts.updated_at,
+         (SELECT MAX(sn2.created_at) FROM study_notes sn2
+          WHERE sn2.topic_id = t.id AND sn2.type = 'highlight')) AS updated_at
+     FROM topics t
      JOIN courses c ON t.course_id = c.id
-     WHERE sn.type = 'note'
-     ORDER BY sn.created_at DESC
+     LEFT JOIN topic_summaries ts ON ts.topic_id = t.id
+     WHERE ts.id IS NOT NULL
+        OR EXISTS (SELECT 1 FROM study_notes sn3
+                   WHERE sn3.topic_id = t.id AND sn3.type = 'highlight')
+     ORDER BY updated_at DESC
      LIMIT 20`
   ).all();
-  res.json(notes);
+  res.json(rows);
 });
 
-// Get all notes & highlights for a topic
+// ─── Get summary + highlights for a topic ───
+router.get("/:topicId/summary", (req, res) => {
+  const db = getDb();
+  const { topicId } = req.params;
+
+  const summary = db.prepare(
+    `SELECT id, topic_id, user_id, body, created_at, updated_at
+     FROM topic_summaries WHERE topic_id = ?`
+  ).get(topicId);
+
+  const highlights = db.prepare(
+    `SELECT id, topic_id, user_id, page, paragraph, anchor_text, text, created_at
+     FROM study_notes
+     WHERE topic_id = ? AND type = 'highlight'
+     ORDER BY page ASC, paragraph ASC, created_at ASC`
+  ).all(topicId);
+
+  res.json({
+    body: summary?.body || "",
+    updatedAt: summary?.updated_at || null,
+    highlights,
+  });
+});
+
+// ─── Upsert summary body for a topic ───
+router.put("/:topicId/summary", (req, res) => {
+  const db = getDb();
+  const { topicId } = req.params;
+  const { body } = req.body;
+  if (body === undefined) return res.status(400).json({ error: "body is required" });
+
+  const existing = db.prepare(
+    "SELECT id FROM topic_summaries WHERE topic_id = ?"
+  ).get(topicId);
+
+  if (existing) {
+    db.prepare(
+      "UPDATE topic_summaries SET body = ?, updated_at = datetime('now') WHERE topic_id = ?"
+    ).run(body, topicId);
+  } else {
+    db.prepare(
+      "INSERT INTO topic_summaries (topic_id, user_id, body) VALUES (?, 1, ?)"
+    ).run(topicId, body);
+  }
+
+  const summary = db.prepare(
+    "SELECT id, topic_id, user_id, body, created_at, updated_at FROM topic_summaries WHERE topic_id = ?"
+  ).get(topicId);
+
+  res.json(summary);
+});
+
+// ─── Create a highlight (immutable) ───
+router.post("/:topicId/highlight", (req, res) => {
+  const db = getDb();
+  const { topicId } = req.params;
+  const { page, paragraph, anchorText, text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: "text is required" });
+
+  const result = db.prepare(
+    `INSERT INTO study_notes (topic_id, user_id, type, page, paragraph, anchor_text, text)
+     VALUES (?, 1, 'highlight', ?, ?, ?, ?)`
+  ).run(topicId, page || 1, paragraph ?? null, anchorText || "", text.trim());
+
+  const highlight = db.prepare("SELECT * FROM study_notes WHERE id = ?").get(result.lastInsertRowid);
+  res.status(201).json(highlight);
+});
+
+// ─── Legacy: get all notes & highlights for a topic (used by reader) ───
 router.get("/:topicId", (req, res) => {
   const db = getDb();
   const notes = db
@@ -29,38 +108,7 @@ router.get("/:topicId", (req, res) => {
   res.json(notes);
 });
 
-// Create a note or highlight
-router.post("/:topicId", (req, res) => {
-  const db = getDb();
-  const { type, page, text, color } = req.body;
-  if (!text || !text.trim()) return res.status(400).json({ error: "Text is required" });
-
-  const result = db
-    .prepare(
-      `INSERT INTO study_notes (topic_id, type, page, text, color) VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(req.params.topicId, type || "note", page || 1, text.trim(), color || "");
-
-  const note = db.prepare("SELECT * FROM study_notes WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json(note);
-});
-
-// Update a note
-router.put("/:id", (req, res) => {
-  const db = getDb();
-  const { text, color } = req.body;
-  if (!text || !text.trim()) return res.status(400).json({ error: "Text is required" });
-
-  const result = db
-    .prepare("UPDATE study_notes SET text = ?, color = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(text.trim(), color || "", req.params.id);
-
-  if (result.changes === 0) return res.status(404).json({ error: "Note not found" });
-  const note = db.prepare("SELECT * FROM study_notes WHERE id = ?").get(req.params.id);
-  res.json(note);
-});
-
-// Delete a note
+// ─── Delete a highlight ───
 router.delete("/:id", (req, res) => {
   const db = getDb();
   const result = db.prepare("DELETE FROM study_notes WHERE id = ?").run(req.params.id);

@@ -182,6 +182,18 @@ CREATE TABLE IF NOT EXISTS study_notes (
   page INTEGER DEFAULT 1,
   text TEXT NOT NULL DEFAULT '',
   color TEXT DEFAULT '',
+  paragraph INTEGER DEFAULT NULL,
+  anchor_text TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS topic_summaries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL UNIQUE,
+  user_id INTEGER DEFAULT 1,
+  body TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE

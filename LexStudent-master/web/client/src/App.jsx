@@ -11,6 +11,7 @@ import TopicReader from './pages/TopicReader'
 import TopicMaterial from './pages/TopicMaterial'
 import RevisionMode from './pages/RevisionMode'
 import RevisionSession from './pages/RevisionSession'
+import SummaryView from './pages/SummaryView'
 import CasesLibrary from './pages/CasesLibrary'
 import Badges from './pages/Badges'
 import Milestone from './pages/Milestone'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/courses/:courseId/topics/new/materials" element={<AddTopicMaterials />} />
         <Route path="/courses/:courseId/topics/:topicId/materials" element={<TopicMaterial />} />
         <Route path="/revision" element={<RevisionMode />} />
+        <Route path="/revision/summary/:topicId" element={<SummaryView />} />
         <Route path="/revision/session" element={<RevisionSession />} />
         <Route path="/cases" element={<CasesLibrary />} />
         <Route path="/badges" element={<Badges />} />

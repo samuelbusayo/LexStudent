@@ -22,6 +22,17 @@ export function initDb() {
   const schemaPath = path.join(__dirname, 'schema.sql')
   const schema = fs.readFileSync(schemaPath, 'utf-8')
   db.exec(schema)
+
+  // Idempotent migrations — add columns that may not exist in older DBs
+  const cols = db.prepare("PRAGMA table_info(study_notes)").all()
+  const colNames = cols.map(c => c.name)
+  if (!colNames.includes('paragraph')) {
+    db.exec("ALTER TABLE study_notes ADD COLUMN paragraph INTEGER DEFAULT NULL")
+  }
+  if (!colNames.includes('anchor_text')) {
+    db.exec("ALTER TABLE study_notes ADD COLUMN anchor_text TEXT DEFAULT ''")
+  }
+
   return db
 }
 

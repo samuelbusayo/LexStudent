@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import * as pdfjsLib from 'pdfjs-dist'
 import 'pdfjs-dist/web/pdf_viewer.css'
@@ -10,10 +10,13 @@ import api from '../services/api'
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
 const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+const AUTOSAVE_DELAY = 1200 // ms
 
 export default function TopicReader() {
   const { courseId, topicId } = useParams()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { data: course } = useCourse(courseId)
   const { data: topics } = useTopics(courseId)
   const topic = topics?.find(t => t.id === Number(topicId))
@@ -54,15 +57,13 @@ export default function TopicReader() {
   const [error, setError] = useState('')
   const [fileType, setFileType] = useState('')
 
-  // Study Notes state
-  const [notes, setNotes] = useState([])
+  // Summary Notes state (one summary per topic + highlights)
+  const [summaryBody, setSummaryBody] = useState('')
+  const [summaryLoaded, setSummaryLoaded] = useState(false)
   const [highlights, setHighlights] = useState([])
-  const [activeTab, setActiveTab] = useState('notes')
-  const [noteText, setNoteText] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [editingNote, setEditingNote] = useState(null)
-  const [editText, setEditText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('') // '', 'saving', 'saved'
 
   // Refs
   const pdfWrapperRef = useRef(null)
@@ -74,26 +75,69 @@ export default function TopicReader() {
   const pptxViewerRef = useRef(null)
   const pptxPresentationRef = useRef(null)
   const fileBufferRef = useRef(null)
+  const autosaveTimerRef = useRef(null)
+  const lastSavedBodyRef = useRef('')
 
   const zoom = ZOOM_LEVELS[zoomIndex]
   const currentPage = selectedPages ? selectedPages[currentIndex] : currentIndex + 1
   const visiblePageCount = selectedPages ? selectedPages.length : totalPages
 
-  // ─── Load Study Notes from server ───
-  const loadStudyNotes = useCallback(async () => {
+  // ─── Load Summary + Highlights from server ───
+  const loadSummaryData = useCallback(async () => {
     try {
-      const res = await api.get(`/study-notes/${topicId}`)
-      const all = res.data
-      setNotes(all.filter(n => n.type === 'note'))
-      setHighlights(all.filter(n => n.type === 'highlight'))
+      const res = await api.get(`/study-notes/${topicId}/summary`)
+      const data = res.data
+      setSummaryBody(data.body || '')
+      lastSavedBodyRef.current = data.body || ''
+      setHighlights(data.highlights || [])
+      setSummaryLoaded(true)
     } catch (err) {
-      console.error('Failed to load study notes', err)
+      console.error('Failed to load summary data', err)
+      setSummaryLoaded(true)
     }
   }, [topicId])
 
   useEffect(() => {
-    if (topicId) loadStudyNotes()
-  }, [topicId, loadStudyNotes])
+    if (topicId) loadSummaryData()
+  }, [topicId, loadSummaryData])
+
+  // ─── Autosave summary (debounced) ───
+  const saveSummary = useCallback(async (body) => {
+    if (body === lastSavedBodyRef.current) return
+    setSaveStatus('saving')
+    try {
+      await api.put(`/study-notes/${topicId}/summary`, { body })
+      lastSavedBodyRef.current = body
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(''), 2000)
+    } catch (err) {
+      console.error('Failed to save summary', err)
+      setSaveStatus('')
+    }
+  }, [topicId])
+
+  const handleSummaryChange = useCallback((e) => {
+    const newBody = e.target.value
+    setSummaryBody(newBody)
+    // Debounce autosave
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = setTimeout(() => saveSummary(newBody), AUTOSAVE_DELAY)
+  }, [saveSummary])
+
+  // Flush pending autosave on unmount
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current)
+        // Synchronous save attempt on unmount
+        const body = document.querySelector('[data-summary-textarea]')?.value
+        if (body !== undefined && body !== lastSavedBodyRef.current) {
+          navigator.sendBeacon?.(`/api/study-notes/${topicId}/summary`,
+            new Blob([JSON.stringify({ body })], { type: 'application/json' }))
+        }
+      }
+    }
+  }, [topicId])
 
   // ─── Load Document ───
   const loadDocument = useCallback(async () => {
@@ -186,6 +230,30 @@ export default function TopicReader() {
       } catch {}
     }
   }, [totalPages, selectedPages, storageKey, fileType, searchParams])
+
+  // ─── Deep-link paragraph scrolling ───
+  useEffect(() => {
+    const paraParam = searchParams.get('para')
+    if (!paraParam || loading) return
+    const paraIdx = Number(paraParam)
+    if (isNaN(paraIdx)) return
+
+    // Wait a tick for the page to finish rendering
+    const timer = setTimeout(() => {
+      const wrapper = pdfWrapperRef.current || docxContainerRef.current
+      if (!wrapper) return
+      const textSpans = wrapper.querySelectorAll('.textLayer span, p, [class*="docx"] p')
+      if (paraIdx < textSpans.length) {
+        const target = textSpans[paraIdx]
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Flash highlight
+        target.style.transition = 'background 0.3s'
+        target.style.background = 'rgba(255,213,79,0.5)'
+        setTimeout(() => { target.style.background = '' }, 2000)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [loading, currentPage, searchParams])
 
   // ─── PDF: Render page with canvas + text layer ───
   const renderPdfPage = useCallback(async (pageNum, scale) => {
@@ -324,6 +392,15 @@ export default function TopicReader() {
     return next
   })
 
+  // Back button: honor router state from summary view
+  const handleBack = () => {
+    if (location.state?.from === 'summary') {
+      navigate(-1)
+    } else {
+      navigate(`/courses/${courseId}`)
+    }
+  }
+
   const handleMarkRead = async () => {
     try {
       const readCount = currentIndex + 1
@@ -351,33 +428,44 @@ export default function TopicReader() {
     }
   }
 
-  // ─── Study Notes CRUD ───
-  const addNote = async () => {
-    if (!noteText.trim() || savingNote) return
-    setSavingNote(true)
-    try {
-      const res = await api.post(`/study-notes/${topicId}`, {
-        type: 'note',
-        page: currentPage,
-        text: noteText.trim(),
-      })
-      setNotes(prev => [...prev, res.data])
-      setNoteText('')
-    } catch (err) {
-      console.error('Failed to save note', err)
-    }
-    setSavingNote(false)
-  }
-
+  // ─── Highlight: capture paragraph anchor ───
   const addHighlight = async () => {
     const selection = window.getSelection()
     const selectedText = selection?.toString().trim()
     if (!selectedText) return
     setSavingNote(true)
+
+    // Compute paragraph index from selection
+    let paragraph = null
+    let anchorText = ''
     try {
-      const res = await api.post(`/study-notes/${topicId}`, {
-        type: 'highlight',
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        const container = range.startContainer
+        // For PDFs: find the span index in the textLayer
+        const wrapper = pdfWrapperRef.current || docxContainerRef.current
+        if (wrapper) {
+          const textSpans = wrapper.querySelectorAll('.textLayer span, p, [class*="docx"] p')
+          const parentEl = container.nodeType === 3 ? container.parentElement : container
+          for (let i = 0; i < textSpans.length; i++) {
+            if (textSpans[i] === parentEl || textSpans[i].contains(parentEl)) {
+              paragraph = i
+              break
+            }
+          }
+        }
+        // Short anchor snippet for re-location
+        anchorText = selectedText.slice(0, 60)
+      }
+    } catch (e) {
+      // Paragraph detection failed — fall back to page-only
+    }
+
+    try {
+      const res = await api.post(`/study-notes/${topicId}/highlight`, {
         page: currentPage,
+        paragraph,
+        anchorText,
         text: selectedText,
       })
       setHighlights(prev => [...prev, res.data])
@@ -398,39 +486,12 @@ export default function TopicReader() {
     setSavingNote(false)
   }
 
-  const startEditNote = (note) => {
-    setEditingNote(note.id)
-    setEditText(note.text)
-  }
-
-  const saveEditNote = async (noteId, type) => {
-    if (!editText.trim()) return
-    setSavingNote(true)
+  const deleteHighlight = async (highlightId) => {
     try {
-      const res = await api.put(`/study-notes/${noteId}`, { text: editText.trim() })
-      if (type === 'note') {
-        setNotes(prev => prev.map(n => n.id === noteId ? res.data : n))
-      } else {
-        setHighlights(prev => prev.map(h => h.id === noteId ? res.data : h))
-      }
-      setEditingNote(null)
-      setEditText('')
+      await api.delete(`/study-notes/${highlightId}`)
+      setHighlights(prev => prev.filter(h => h.id !== highlightId))
     } catch (err) {
-      console.error('Failed to update note', err)
-    }
-    setSavingNote(false)
-  }
-
-  const deleteNote = async (noteId, type) => {
-    try {
-      await api.delete(`/study-notes/${noteId}`)
-      if (type === 'note') {
-        setNotes(prev => prev.filter(n => n.id !== noteId))
-      } else {
-        setHighlights(prev => prev.filter(h => h.id !== noteId))
-      }
-    } catch (err) {
-      console.error('Failed to delete note', err)
+      console.error('Failed to delete highlight', err)
     }
   }
 
@@ -438,9 +499,7 @@ export default function TopicReader() {
   const isPdf = fileType.includes('pdf') || fileType === 'pdf'
   const isDocx = fileType.includes('docx') || fileType.includes('doc') || fileType === 'docx' || fileType === 'doc'
   const isPptx = fileType.includes('pptx') || fileType === 'pptx'
-  const pageNotes = notes.filter(n => n.page === currentPage)
-  const pageHighlights = highlights.filter(h => h.page === currentPage)
-  const comprehension = Math.min(100, Math.round(((notes.length * 5) + (highlights.length * 3))))
+  const comprehension = Math.min(100, Math.round((summaryBody.length > 0 ? 20 : 0) + (highlights.length * 8)))
 
   if (!topic) {
     return (
@@ -459,63 +518,14 @@ export default function TopicReader() {
     catch { return '' }
   }
 
-  // ─── Render a note/highlight card ───
-  const renderNoteCard = (item, type) => {
-    const isEditing = editingNote === item.id
-    const bgClass = type === 'highlight' ? 'bg-amber-50 border-amber-200' : 'bg-surface-container-low border-outline-variant/20'
-    const labelClass = type === 'highlight' ? 'text-amber-700' : 'text-primary-container'
-
-    return (
-      <div key={item.id} className={`rounded-lg p-3 border ${bgClass}`}>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className={`text-xs font-bold ${labelClass}`}>Page {item.page}</span>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-on-surface-variant">{formatTime(item.createdAt || item.created_at)}</span>
-            {!isEditing && (
-              <>
-                <button onClick={() => startEditNote(item)} className="p-0.5 text-on-surface-variant hover:text-primary-container transition-colors" title="Edit">
-                  <span className="material-symbols-outlined text-[14px]">edit</span>
-                </button>
-                <button onClick={() => deleteNote(item.id, type)} className="p-0.5 text-on-surface-variant hover:text-error transition-colors" title="Delete">
-                  <span className="material-symbols-outlined text-[14px]">delete</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-        {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={editText}
-              onChange={e => setEditText(e.target.value)}
-              className="w-full bg-white border border-outline-variant/30 rounded-lg p-2 text-sm font-body resize-none focus:ring-2 focus:ring-primary outline-none"
-              rows={3}
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button onClick={() => saveEditNote(item.id, type)} disabled={savingNote || !editText.trim()} className="flex-1 px-2 py-1.5 bg-primary-container text-white rounded-lg font-button text-xs hover:opacity-90 disabled:opacity-50">
-                {savingNote ? 'Saving...' : 'Save'}
-              </button>
-              <button onClick={() => { setEditingNote(null); setEditText('') }} className="px-2 py-1.5 border border-outline text-on-surface-variant rounded-lg font-button text-xs hover:bg-surface-container">
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-on-surface leading-relaxed">{item.text}</p>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="h-screen flex flex-col bg-surface-container-low overflow-hidden">
       {/* Top bar */}
       <header className="flex items-center justify-between h-14 px-4 bg-surface-container-lowest border-b border-outline-variant/30 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <Link to={`/courses/${courseId}`} className="flex items-center gap-1 text-on-surface-variant hover:text-primary-container transition-colors">
+          <button onClick={handleBack} className="flex items-center gap-1 text-on-surface-variant hover:text-primary-container transition-colors">
             <span className="material-symbols-outlined text-lg">arrow_back</span>
-          </Link>
+          </button>
           <div>
             <h1 className="font-h3 text-h3 text-primary-container truncate max-w-md">Reading: {topic.name}</h1>
             <span className="text-xs text-on-surface-variant uppercase">{fileType || topic.materialType}</span>
@@ -621,33 +631,25 @@ export default function TopicReader() {
           )}
         </div>
 
-        {/* ═══ Right sidebar — Study Notes ═══ */}
+        {/* ═══ Right sidebar — Summary Notes ═══ */}
         {sidebarOpen && (
           <aside className="w-80 bg-surface-container-lowest border-l border-outline-variant/30 flex flex-col flex-shrink-0 overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-outline-variant/30 flex-shrink-0">
-              <h2 className="font-h3 text-h3 text-primary-container">Study Tools</h2>
-              <p className="text-xs text-on-surface-variant mt-0.5">{notes.length} notes &middot; {highlights.length} highlights</p>
+              <div className="flex items-center justify-between">
+                <h2 className="font-h3 text-h3 text-primary-container">Summary Notes</h2>
+                {saveStatus && (
+                  <span className={`text-[10px] font-label-caps ${saveStatus === 'saving' ? 'text-on-surface-variant' : 'text-green-600'}`}>
+                    {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-on-surface-variant mt-0.5">{highlights.length} highlight{highlights.length !== 1 ? 's' : ''}</p>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-outline-variant/30 flex-shrink-0">
-              {['notes', 'highlights', 'summary'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-2.5 text-xs font-button capitalize transition-colors ${
-                    activeTab === tab
-                      ? 'text-primary-container border-b-2 border-primary-container'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >{tab}{tab === 'notes' && notes.length > 0 ? ` (${notes.length})` : tab === 'highlights' && highlights.length > 0 ? ` (${highlights.length})` : ''}</button>
-              ))}
-            </div>
-
-            {/* Tab content */}
+            {/* Scrollable content: summary + highlights */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Comprehension bar — always visible */}
+              {/* Comprehension bar */}
               <div className="bg-secondary-container/10 rounded-xl p-3 border border-secondary-container/20">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-label-caps text-on-surface-variant">Comprehension</span>
@@ -658,147 +660,64 @@ export default function TopicReader() {
                 </div>
               </div>
 
-              {/* ── Notes tab ── */}
-              {activeTab === 'notes' && (
-                <>
-                  {/* Add note form */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm text-primary-container">edit_note</span>
-                      <span className="text-xs font-label-caps text-on-surface-variant">Add Note (Page {currentPage})</span>
-                    </div>
-                    <textarea
-                      value={noteText}
-                      onChange={e => setNoteText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addNote() }}
-                      placeholder="Write a note about this page..."
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 text-sm font-body resize-none focus:ring-2 focus:ring-primary outline-none"
-                      rows={3}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={addNote}
-                        disabled={!noteText.trim() || savingNote}
-                        className="flex-1 px-3 py-2 bg-primary-container text-white rounded-lg font-button text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
-                      >
-                        {savingNote ? 'Saving...' : 'Save Note'}
-                      </button>
-                      <button
-                        onClick={addHighlight}
-                        className="px-3 py-2 bg-amber-100 text-amber-800 rounded-lg font-button text-xs hover:bg-amber-200 transition-colors flex items-center gap-1"
-                        title="Highlight selected text"
-                      >
-                        <span className="material-symbols-outlined text-sm">highlight</span>
-                        Highlight
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-on-surface-variant">Tip: Select text in the document, then click Highlight to save it. Press Ctrl+Enter to save a note.</p>
-                  </div>
+              {/* Editable summary textarea */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-primary-container">edit_note</span>
+                  <span className="text-xs font-label-caps text-on-surface-variant">Add Summary Notes</span>
+                </div>
+                <textarea
+                  data-summary-textarea
+                  value={summaryBody}
+                  onChange={handleSummaryChange}
+                  placeholder="Write your summary notes for this topic... This is a single summary for the entire topic — type your thoughts, key takeaways, and observations here."
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 text-sm font-body resize-none focus:ring-2 focus:ring-primary outline-none min-h-[120px]"
+                  rows={6}
+                />
+                <p className="text-[10px] text-on-surface-variant">Auto-saves as you type. Select text in the document and click Highlight below to pin it here.</p>
+              </div>
 
-                  {/* Notes for current page */}
-                  {pageNotes.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs font-label-caps text-on-surface-variant">This Page</span>
-                      {pageNotes.map(n => renderNoteCard(n, 'note'))}
-                    </div>
-                  )}
+              {/* Highlight button */}
+              <button
+                onClick={addHighlight}
+                disabled={savingNote}
+                className="w-full px-3 py-2 bg-amber-100 text-amber-800 rounded-lg font-button text-xs hover:bg-amber-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                title="Highlight selected text from the document"
+              >
+                <span className="material-symbols-outlined text-sm">highlight</span>
+                {savingNote ? 'Saving...' : 'Highlight Selected Text'}
+              </button>
 
-                  {/* Highlights for current page */}
-                  {pageHighlights.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs font-label-caps text-on-surface-variant">Page Highlights</span>
-                      {pageHighlights.map(h => renderNoteCard(h, 'highlight'))}
-                    </div>
-                  )}
-
-                  {/* All notes from other pages */}
-                  {notes.filter(n => n.page !== currentPage).length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-outline-variant/20">
-                      <span className="text-xs font-label-caps text-on-surface-variant">Other Pages</span>
-                      {notes.filter(n => n.page !== currentPage).map(n => renderNoteCard(n, 'note'))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* ── Highlights tab ── */}
-              {activeTab === 'highlights' && (
+              {/* Highlight cards (uneditable, interleaved) */}
+              {highlights.length > 0 && (
                 <div className="space-y-2">
-                  {highlights.length === 0 ? (
-                    <div className="text-center py-8 text-on-surface-variant">
-                      <span className="material-symbols-outlined text-3xl mb-2">highlight</span>
-                      <p className="text-sm font-bold">No highlights yet</p>
-                      <p className="text-xs mt-2 leading-relaxed">Select text in the document, then click the <strong>Highlight</strong> button in the Notes tab to save it.</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Group highlights by page */}
-                      {[...new Set(highlights.map(h => h.page))].sort((a, b) => a - b).map(page => (
-                        <div key={page}>
-                          <p className="text-xs font-label-caps text-on-surface-variant mb-1.5 mt-2 first:mt-0">Page {page}</p>
-                          {highlights.filter(h => h.page === page).map(h => renderNoteCard(h, 'highlight'))}
+                  <span className="text-xs font-label-caps text-on-surface-variant">Highlights</span>
+                  {highlights.map(h => (
+                    <div key={h.id} className="rounded-lg p-3 border bg-amber-50 border-amber-200">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[12px]">highlight</span>
+                          p.{h.page}{h.paragraph != null ? ` ¶${h.paragraph}` : ''}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-on-surface-variant">{formatTime(h.createdAt || h.created_at)}</span>
+                          <button onClick={() => deleteHighlight(h.id)} className="p-0.5 text-on-surface-variant hover:text-error transition-colors" title="Delete highlight">
+                            <span className="material-symbols-outlined text-[14px]">delete</span>
+                          </button>
                         </div>
-                      ))}
-                    </>
-                  )}
+                      </div>
+                      <p className="text-sm text-on-surface leading-relaxed italic">{h.text}</p>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* ── Summary tab ── */}
-              {activeTab === 'summary' && (
-                <div className="space-y-3">
-                  <div className="bg-surface-container-low rounded-xl p-3 border border-outline-variant/20">
-                    <h4 className="text-xs font-bold text-primary-container mb-2">Topic Overview</h4>
-                    <p className="text-sm text-on-surface-variant leading-relaxed">
-                      {topic.subtitle || topic.name}. Part of {course?.name || 'this course'}.
-                    </p>
-                    <div className="flex items-center gap-4 mt-3 text-xs text-on-surface-variant">
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">auto_stories</span>
-                        {topic.pagesRead ?? 0}/{visiblePageCount || topic.totalPages || 10} pages read
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">edit_note</span>
-                        {notes.length} notes
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">highlight</span>
-                        {highlights.length} highlights
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Auto-generated summary from highlights */}
-                  {highlights.length > 0 && (
-                    <div className="bg-surface-container-low rounded-xl p-3 border border-outline-variant/20">
-                      <h4 className="text-xs font-bold text-primary-container mb-2">Key Highlights</h4>
-                      <ul className="space-y-1.5">
-                        {highlights.slice(0, 8).map(h => (
-                          <li key={h.id} className="text-sm text-on-surface-variant leading-relaxed flex items-start gap-2">
-                            <span className="text-amber-500 mt-0.5 flex-shrink-0">&bull;</span>
-                            <span className="italic">"{h.text.length > 80 ? h.text.slice(0, 80) + '...' : h.text}"</span>
-                          </li>
-                        ))}
-                        {highlights.length > 8 && (
-                          <li className="text-xs text-on-surface-variant pl-4">+ {highlights.length - 8} more highlights</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Study progress */}
-                  <div className="bg-surface-container-low rounded-xl p-3 border border-outline-variant/20">
-                    <h4 className="text-xs font-bold text-primary-container mb-2">Study Activity</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-on-surface-variant">Reading progress</span>
-                        <span className="font-bold text-primary-container">{Math.min(100, Math.round(((topic.pagesRead ?? 0) / (visiblePageCount || topic.totalPages || 10)) * 100))}%</span>
-                      </div>
-                      <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary-container rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((topic.pagesRead ?? 0) / (visiblePageCount || topic.totalPages || 10)) * 100)}%` }} />
-                      </div>
-                    </div>
-                  </div>
+              {/* Empty state when no summary and no highlights */}
+              {!summaryBody && highlights.length === 0 && summaryLoaded && (
+                <div className="text-center py-6 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-3xl mb-2">note_add</span>
+                  <p className="text-sm font-bold">Start taking notes</p>
+                  <p className="text-xs mt-2 leading-relaxed">Write your summary above or select text in the document and click Highlight to capture key passages.</p>
                 </div>
               )}
             </div>
@@ -808,9 +727,9 @@ export default function TopicReader() {
               <button onClick={handleMarkRead} className="w-full px-4 py-2.5 bg-primary-container text-white rounded-xl font-button text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-sm">check_circle</span>Mark Page as Read
               </button>
-              <Link to={`/courses/${courseId}`} className="w-full px-4 py-2.5 border border-outline text-on-surface-variant rounded-xl font-button text-sm hover:bg-surface-container transition-colors text-center block">
-                Back to Course
-              </Link>
+              <button onClick={handleBack} className="w-full px-4 py-2.5 border border-outline text-on-surface-variant rounded-xl font-button text-sm hover:bg-surface-container transition-colors text-center block">
+                {location.state?.from === 'summary' ? 'Back to Summary' : 'Back to Course'}
+              </button>
             </div>
           </aside>
         )}

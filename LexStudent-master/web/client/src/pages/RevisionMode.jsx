@@ -13,7 +13,7 @@ export default function RevisionMode() {
   const { data: gaps } = useKnowledgeGaps();
   const navigate = useNavigate();
   const { data: summaries } = useQuery({
-    queryKey: ['studyNotes'],
+    queryKey: ['summaryFeed'],
     queryFn: () => api.get('/study-notes').then(r => r.data),
   });
 
@@ -59,7 +59,7 @@ export default function RevisionMode() {
             <p className="text-on-surface-variant font-body-md py-4">No notes yet. Start reading and add notes to see them here.</p>
           ) : (
             (summaries || []).map((s) => (
-              <SummaryCard key={s.id} summary={s} />
+              <SummaryCard key={s.topicId} summary={s} />
             ))
           )}
         </div>
