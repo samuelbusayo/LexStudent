@@ -64,8 +64,8 @@ export default function Dashboard() {
             <div>
               <p className="font-body-md font-bold">{overallProgress?.overall ?? 0}% Complete</p>
               <p className="text-xs text-on-surface-variant">
-                {overallProgress?.courses?.reduce((s: number, c: any) => s + (c.completed_topics || 0), 0)}/
-                {overallProgress?.courses?.reduce((s: number, c: any) => s + (c.total_topics || 0), 0)} topics
+                {overallProgress?.courses?.reduce((s: number, c: any) => s + (c.completedTopics || 0), 0)}/
+                {overallProgress?.courses?.reduce((s: number, c: any) => s + (c.totalTopics || 0), 0)} topics
               </p>
             </div>
           </div>
@@ -111,7 +111,7 @@ export default function Dashboard() {
         <section className="bg-surface-container-lowest p-stack-md rounded-xl border border-outline-variant/30">
           <h3 className="font-h3 text-h3 text-primary mb-stack-md">Recent Progress</h3>
           <div className="space-y-stack-md">
-            {(overallProgress?.courses || []).filter((c: any) => c.total_topics > 0).slice(0, 4).map((c: any) => (
+            {(overallProgress?.courses || []).filter((c: any) => c.totalTopics > 0).slice(0, 4).map((c: any) => (
               <div key={c.courseId} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-bold">{c.courseName}</p>

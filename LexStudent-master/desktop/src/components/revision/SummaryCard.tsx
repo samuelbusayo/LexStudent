@@ -1,25 +1,47 @@
+import { Link } from 'react-router-dom'
+
 interface SummaryCardProps {
-  icon: string
-  label: string
-  value: string | number
-  color?: 'primary' | 'secondary' | 'green' | 'error'
+  summary: {
+    topicId: number
+    topicName: string
+    courseId: number
+    courseName: string
+    summaryBody?: string
+    highlightCount: number
+  }
 }
 
-export default function SummaryCard({ icon, label, value, color = 'primary' }: SummaryCardProps) {
-  const colorClasses = {
-    primary: 'text-primary bg-primary/5',
-    secondary: 'text-secondary bg-secondary/5',
-    green: 'text-green-600 bg-green-50',
-    error: 'text-error bg-error/5',
-  }
+export default function SummaryCard({ summary }: SummaryCardProps) {
+  const preview = summary.summaryBody
+    ? (summary.summaryBody.length > 120
+        ? summary.summaryBody.slice(0, 120) + '...'
+        : summary.summaryBody)
+    : null
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-4 border border-outline-variant/30">
-      <div className={`w-10 h-10 rounded-lg ${colorClasses[color]} flex items-center justify-center mb-3`}>
-        <span className="material-symbols-outlined text-[20px]">{icon}</span>
+    <Link
+      to={`/revision/summary/${summary.topicId}?courseId=${summary.courseId}`}
+      className="min-w-[280px] bg-white rounded-xl p-5 border border-outline-variant/30 space-y-3 block hover:shadow-md transition-shadow"
+    >
+      <div className="flex justify-between items-start">
+        <span className="font-label-caps text-secondary">{summary.courseName}</span>
+        {summary.highlightCount > 0 && (
+          <span className="flex items-center gap-0.5 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">
+            <span className="material-symbols-outlined text-[12px]">highlight</span>
+            {summary.highlightCount}
+          </span>
+        )}
       </div>
-      <p className="text-2xl font-h2 text-on-surface">{value}</p>
-      <p className="text-xs text-on-surface-variant mt-0.5">{label}</p>
-    </div>
+      <p className="font-h3 text-primary leading-tight">{summary.topicName}</p>
+      {preview ? (
+        <p className="text-body-md text-on-surface-variant line-clamp-3">{preview}</p>
+      ) : (
+        <p className="text-body-md text-on-surface-variant italic">
+          {summary.highlightCount > 0
+            ? `${summary.highlightCount} highlight${summary.highlightCount !== 1 ? 's' : ''} saved`
+            : 'No summary yet'}
+        </p>
+      )}
+    </Link>
   )
 }

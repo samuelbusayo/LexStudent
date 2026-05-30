@@ -19,7 +19,7 @@ export default function GoalList({ goals, onComplete }: GoalListProps) {
   return (
     <div className="space-y-4">
       {goals.map((goal: any) => (
-        <GoalCard key={goal.id} goal={goal} onComplete={onComplete} />
+        <GoalCard key={goal.id} goal={goal} />
       ))}
     </div>
   )

@@ -1,32 +1,40 @@
 interface StreakHeroProps {
-  streak: number
-  bestStreak?: number
+  streak?: {
+    streak?: number
+    badge?: string
+    ringPercent?: number
+  }
 }
 
-export default function StreakHero({ streak, bestStreak = 0 }: StreakHeroProps) {
+export default function StreakHero({ streak }: StreakHeroProps) {
+  const days = streak?.streak ?? 0
+  const badge = streak?.badge ?? ''
+  const ringPercent = streak?.ringPercent ?? 0
+
+  const circumference = 2 * Math.PI * 40
+  const offset = circumference - (ringPercent / 100) * circumference
+
   return (
-    <div className="bg-gradient-to-br from-primary to-primary-container p-8 rounded-xl text-white relative overflow-hidden">
-      <div className="absolute top-0 right-0 opacity-10">
-        <span className="material-symbols-outlined text-[160px]" style={{ fontVariationSettings: "'FILL' 1" }}>local_fire_department</span>
-      </div>
-      <div className="relative z-10">
-        <span className="text-[10px] font-bold tracking-wider bg-secondary-fixed/20 px-2 py-0.5 rounded text-secondary-fixed">
-          STUDY STREAK
-        </span>
-        <div className="mt-4 flex items-end gap-3">
-          <span className="text-6xl font-h1 leading-none">{streak}</span>
-          <span className="text-lg text-white/60 pb-1">{streak === 1 ? 'day' : 'days'}</span>
-        </div>
-        <p className="text-sm text-white/60 mt-2">
-          {streak > 0 ? "Keep it going! You're building great study habits." : "Start studying to begin your streak!"}
-        </p>
-        {bestStreak > 0 && (
-          <div className="mt-4 flex items-center gap-2 text-xs text-white/50">
-            <span className="material-symbols-outlined text-[14px]">emoji_events</span>
-            Personal best: {bestStreak} days
+    <section className="bg-white rounded-xl p-6 border border-outline-variant/30 shadow-sm flex items-center justify-between">
+      <div className="space-y-1">
+        <p className="font-label-caps text-secondary uppercase tracking-widest">Active Streak</p>
+        <h2 className="font-h1 text-primary-container">{days} Days</h2>
+        {badge && (
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
+            <span className="text-body-md font-medium text-on-surface-variant">Badge: {badge}</span>
           </div>
         )}
       </div>
-    </div>
+      <div className="relative w-24 h-24 flex items-center justify-center">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="40" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-primary-container/10" />
+          <circle cx="48" cy="48" r="40" fill="transparent" stroke="currentColor" strokeWidth="4" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="text-secondary transition-all" />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-h3 text-primary-container">{ringPercent}%</span>
+        </div>
+      </div>
+    </section>
   )
 }

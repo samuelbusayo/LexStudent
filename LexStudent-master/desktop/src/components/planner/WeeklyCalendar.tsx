@@ -1,43 +1,96 @@
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+import { useMemo } from 'react'
 
-interface WeeklyCalendarProps {
-  events?: any[]
-  currentDay?: number
+const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
+const MONTH_NAMES = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER']
+
+function getWeekDays() {
+  const today = new Date()
+  const dow = today.getDay()
+  const mondayOffset = dow === 0 ? 6 : dow - 1
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - mondayOffset)
+
+  const days: { label: string; date: number; dateStr: string; isToday: boolean; isPast: boolean }[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    days.push({
+      label: DAY_LABELS[i],
+      date: d.getDate(),
+      dateStr: d.toISOString().slice(0, 10),
+      isToday: d.toDateString() === today.toDateString(),
+      isPast: d < new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+    })
+  }
+
+  const yearStart = new Date(monday.getFullYear(), 0, 1)
+  const weekNum = Math.ceil(((monday.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+
+  return { days, month: MONTH_NAMES[monday.getMonth()], year: monday.getFullYear(), weekNum }
 }
 
-export default function WeeklyCalendar({ events = [], currentDay }: WeeklyCalendarProps) {
-  const today = currentDay ?? new Date().getDay()
-  // JS: 0=Sun, shift to Mon=0
-  const adjustedToday = today === 0 ? 6 : today - 1
+interface WeeklyCalendarProps {
+  selectedDate: string
+  onSelectDate: (date: string) => void
+  goalDates?: string[]
+}
+
+export default function WeeklyCalendar({ selectedDate, onSelectDate, goalDates }: WeeklyCalendarProps) {
+  const { days, month, year, weekNum } = useMemo(() => getWeekDays(), [])
+  const goalDateSet = useMemo(() => new Set(goalDates || []), [goalDates])
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
-      <h3 className="font-h3 text-h3 text-primary mb-4">This Week</h3>
-      <div className="grid grid-cols-7 gap-1">
-        {DAYS.map((day, i) => {
-          const isToday = i === adjustedToday
-          const hasEvent = events.some((e: any) => e.day === i)
-          return (
-            <div key={day} className="text-center">
-              <span className="text-[10px] text-on-surface-variant font-medium block mb-1">{day}</span>
-              <div
-                className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  isToday
-                    ? 'bg-secondary text-white'
-                    : hasEvent
-                    ? 'bg-secondary-container/30 text-secondary'
-                    : 'text-on-surface-variant'
-                }`}
-              >
-                {i + 1}
-              </div>
-              {hasEvent && !isToday && (
-                <div className="w-1 h-1 bg-secondary rounded-full mx-auto mt-1" />
-              )}
-            </div>
-          )
-        })}
+    <section className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-8">
+      <div className="md:hidden flex justify-between items-center mb-2 px-1">
+        <span className="font-label-caps text-primary-container">{month} {year}</span>
+        <span className="font-label-caps text-secondary">WEEK {weekNum}</span>
       </div>
-    </div>
+      {days.map((d) => {
+        const isSelected = selectedDate === d.dateStr
+        const hasGoal = goalDateSet.has(d.dateStr)
+
+        if (d.isToday || isSelected) {
+          return (
+            <button
+              key={d.dateStr}
+              onClick={() => onSelectDate(d.dateStr)}
+              className={`bg-white p-4 rounded-xl border-2 shadow-md flex flex-col items-center justify-center ring-2 transition-all ${
+                isSelected
+                  ? 'border-secondary-container ring-secondary-container/20'
+                  : 'border-secondary-container/50 ring-secondary-container/10'
+              }`}
+            >
+              <span className="font-label-caps text-secondary">{d.label}</span>
+              <span className="font-h3 text-primary-container font-bold">{d.date}</span>
+              {(hasGoal || d.isToday) && <div className="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></div>}
+            </button>
+          )
+        }
+        if (d.isPast) {
+          return (
+            <button
+              key={d.dateStr}
+              onClick={() => onSelectDate(d.dateStr)}
+              className="bg-white p-4 rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center opacity-60 hover:opacity-80 transition-opacity"
+            >
+              <span className="font-label-caps text-slate-400">{d.label}</span>
+              <span className="font-h3 text-slate-400">{d.date}</span>
+              {hasGoal && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>}
+            </button>
+          )
+        }
+        return (
+          <button
+            key={d.dateStr}
+            onClick={() => onSelectDate(d.dateStr)}
+            className="bg-white p-4 rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center hover:border-secondary-container/40 transition-colors"
+          >
+            <span className="font-label-caps text-slate-500">{d.label}</span>
+            <span className="font-h3 text-primary-container">{d.date}</span>
+            {hasGoal && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>}
+          </button>
+        )
+      })}
+    </section>
   )
 }

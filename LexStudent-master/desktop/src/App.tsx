@@ -23,6 +23,8 @@ import Milestone from './pages/Milestone'
 import AddTopic from './pages/AddTopic'
 import TopicReader from './pages/TopicReader'
 import TopicMaterial from './pages/TopicMaterial'
+import SummaryView from './pages/SummaryView'
+import RevisionSession from './pages/RevisionSession'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +73,8 @@ function AppRoutes() {
         <Route path="/courses/:courseId/topics/:topicId/read" element={<TopicReader />} />
         <Route path="/courses/:courseId/topics/:topicId/materials" element={<TopicMaterial />} />
         <Route path="/revision" element={<RevisionMode />} />
+        <Route path="/revision/summary/:topicId" element={<SummaryView />} />
+        <Route path="/revision/session" element={<RevisionSession />} />
         <Route path="/cases" element={<CasesLibrary />} />
         <Route path="/badges" element={<Badges />} />
         <Route path="/settings" element={<Settings />} />
