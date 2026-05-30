@@ -1,6 +1,5 @@
 import React from 'react';
-
-const intensities = [4, 0, 3, 5, 1, 4, 5, 5, 0, 0, 4, 4, 4, 2, 0, 0, 1, 4, 5, 0, 3];
+import { useHeatmap } from '../../hooks/useProgress';
 
 const intensityClass = (v) => {
   if (v === 5) return 'bg-secondary';
@@ -12,6 +11,12 @@ const intensityClass = (v) => {
 };
 
 export default function Heatmap() {
+  const { data } = useHeatmap();
+
+  const intensities = data?.intensities || Array(21).fill(0);
+  const targetMet = data?.targetMet ?? 0;
+  const targetTotal = data?.targetTotal ?? 5;
+
   return (
     <div className="bg-white rounded-xl p-6 border border-[#E0E0D0] flex flex-col justify-between">
       <div>
@@ -24,7 +29,7 @@ export default function Heatmap() {
       </div>
       <div className="pt-6 border-t border-[#E0E0D0] mt-6">
         <p className="text-body-md font-medium text-primary-container">Target Met</p>
-        <p className="text-label-caps text-on-surface-variant">4/5 Days this week</p>
+        <p className="text-label-caps text-on-surface-variant">{targetMet}/{targetTotal} Days this week</p>
       </div>
     </div>
   );

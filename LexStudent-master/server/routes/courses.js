@@ -66,11 +66,22 @@ router.put("/:courseId/topics/:topicId/progress", (req, res) => {
   const { pagesRead } = req.body;
   if (pagesRead === undefined) return res.status(400).json({ error: "pagesRead required" });
 
+  const oldTopic = db.prepare("SELECT * FROM topics WHERE id = ? AND course_id = ?").get(req.params.topicId, req.params.courseId);
+  if (!oldTopic) return res.status(404).json({ error: "Topic not found" });
+
+  const oldPagesRead = oldTopic.pages_read || 0;
+  const delta = pagesRead - oldPagesRead;
+
   db.prepare("UPDATE topics SET pages_read = ?, updated_at = datetime('now') WHERE id = ? AND course_id = ?")
     .run(pagesRead, req.params.topicId, req.params.courseId);
 
+  if (delta > 0) {
+    db.prepare(
+      `INSERT INTO activity_log (user_id, type, topic_id, amount, created_at) VALUES (1, 'page_read', ?, ?, datetime('now'))`
+    ).run(oldTopic.id, delta);
+  }
+
   const topic = db.prepare("SELECT * FROM topics WHERE id = ?").get(req.params.topicId);
-  if (!topic) return res.status(404).json({ error: "Topic not found" });
   res.json(topic);
 });
 

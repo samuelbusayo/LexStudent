@@ -21,12 +21,29 @@ export function seedDatabase(db) {
     const insertCourse = db.prepare(`INSERT INTO courses (id, name, description, type) VALUES (?, ?, ?, ?)`)
     courses.forEach(c => insertCourse.run(...c))
 
-    // Goals
-    const goals = [
-      [1, 'TORTS', 'Read 5 pages of Property Law', 'Focus on Easements and Covenants.', 60, 'in_progress'],
-      [2, 'CONSTITUTIONAL', 'Review Commerce Clause Cases', 'Analyze Wickard v. Filburn summary.', 0, 'not_started'],
+    // Topics for courses (varied mastery and review dates for demo)
+    const topicsData = [
+      [1, 'Legal Ethics Framework', '', 20, 14, null, null, null, '2026-05-25', 3],
+      [1, 'Professional Conduct Rules', '', 15, 5, null, null, null, '2026-05-20', 1],
+      [2, 'Mens Rea Elements', '', 18, 9, null, null, null, '2026-05-27', 7],
+      [2, 'Hearsay Rule', '', 22, 5, null, null, null, null, 1],
+      [3, 'Civil Procedure Overview', '', 25, 25, null, null, null, '2026-05-28', 14],
+      [3, 'Adverse Possession', '', 16, 3, null, null, null, '2026-05-15', 1],
+      [4, 'Company Formation', '', 20, 10, null, null, null, '2026-05-26', 3],
+      [5, 'Land Registration', '', 18, 0, null, null, null, null, 1],
+      [5, 'Easements and Covenants', '', 14, 8, null, null, null, '2026-05-22', 1],
     ]
-    const insertGoal = db.prepare(`INSERT INTO goals (id, subject_tag, title, note, progress, status) VALUES (?, ?, ?, ?, ?, ?)`)
+    const insertTopic = db.prepare(
+      `INSERT INTO topics (course_id, name, subtitle, total_pages, pages_read, material_file, material_type, selected_pages, last_reviewed_at, review_interval_days) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?)`
+    )
+    topicsData.forEach(t => insertTopic.run(...t))
+
+    // Goals (with topic_id and target_amount)
+    const goals = [
+      [1, 'TORTS', 'Read 5 pages of Property Law', 'Focus on Easements and Covenants.', 60, 'in_progress', '2026-05-29', 9, 5],
+      [2, 'CONSTITUTIONAL', 'Review Commerce Clause Cases', 'Analyze Wickard v. Filburn summary.', 0, 'not_started', '2026-05-30', null, 0],
+    ]
+    const insertGoal = db.prepare(`INSERT INTO goals (id, subject_tag, title, note, progress, status, date, topic_id, target_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     goals.forEach(g => insertGoal.run(...g))
 
     // Progress overall
@@ -99,6 +116,24 @@ export function seedDatabase(db) {
       'The Rule of Law requires that people should be able to rely on the law as a guide to their future conduct.',
       'Lord Bingham'
     )
+
+    // Activity log (recent study events for demo streak/heatmap)
+    const now = new Date()
+    const activityRows = []
+    for (let daysAgo = 0; daysAgo < 14; daysAgo++) {
+      if (daysAgo === 5 || daysAgo === 10) continue // gap days to break streak demo
+      const d = new Date(now)
+      d.setDate(d.getDate() - daysAgo)
+      const dateStr = d.toISOString().slice(0, 19).replace('T', ' ')
+      const count = daysAgo === 0 ? 3 : Math.floor(Math.random() * 4) + 1
+      for (let j = 0; j < count; j++) {
+        activityRows.push(['page_read', 1 + (daysAgo % 9), null, 2 + j, dateStr])
+      }
+    }
+    const insertActivity2 = db.prepare(
+      `INSERT INTO activity_log (type, topic_id, goal_id, amount, created_at) VALUES (?, ?, ?, ?, ?)`
+    )
+    activityRows.forEach(r => insertActivity2.run(...r))
 
     // Countdown
     db.prepare(`INSERT INTO countdowns (id, title, days_remaining) VALUES (1, 'Bar Finals', 42)`).run()

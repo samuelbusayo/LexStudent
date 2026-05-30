@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useGoals, useCreateGoal } from '../hooks/useGoals';
 import { useReminders, useToggleReminder } from '../hooks/useReminders';
 import WeeklyCalendar from '../components/planner/WeeklyCalendar';
 import GoalCard from '../components/planner/GoalCard';
+import GoalModal from '../components/planner/GoalModal';
 import ReminderToggle from '../components/planner/ReminderToggle';
 
 export default function Planner() {
@@ -11,12 +12,22 @@ export default function Planner() {
   const toggleReminder = useToggleReminder();
   const createGoal = useCreateGoal();
 
-  const handleSetNewGoal = () => {
-    createGoal.mutate({
-      title: 'New Study Goal',
-      description: 'Complete a study session',
-      targetDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+  const [showModal, setShowModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const goalDates = useMemo(() => {
+    if (!goals) return [];
+    return goals.map(g => g.date).filter(Boolean);
+  }, [goals]);
+
+  const filteredGoals = useMemo(() => {
+    if (!goals) return [];
+    return goals.filter(g => g.date === selectedDate);
+  }, [goals, selectedDate]);
+
+  const handleCreateGoal = (data) => {
+    createGoal.mutate(data);
+    setShowModal(false);
   };
 
   return (
@@ -27,7 +38,7 @@ export default function Planner() {
           <p className="font-body-md text-body-md text-on-surface-variant">Manage your legal curriculum.</p>
         </div>
         <button
-          onClick={handleSetNewGoal}
+          onClick={() => setShowModal(true)}
           className="bg-primary-container text-white px-6 py-3 rounded-xl flex items-center gap-2 font-button text-button shadow-lg active:scale-95 transition-all"
         >
           <span className="material-symbols-outlined">add</span>
@@ -35,7 +46,11 @@ export default function Planner() {
         </button>
       </div>
 
-      <WeeklyCalendar />
+      <WeeklyCalendar
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        goalDates={goalDates}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
@@ -44,7 +59,12 @@ export default function Planner() {
             <h2 className="font-h2 text-h2 text-primary-container">Daily Reading Goals</h2>
           </div>
           <div className="space-y-4">
-            {(goals || []).map((goal) => (
+            {filteredGoals.length === 0 && (
+              <div className="bg-white/50 p-6 rounded-xl border border-[#E0E0D0] text-center">
+                <p className="text-on-surface-variant font-body-md">No goals for this day. Click &ldquo;Set New Goal&rdquo; to add one.</p>
+              </div>
+            )}
+            {filteredGoals.map((goal) => (
               <GoalCard key={goal.id} goal={goal} />
             ))}
             <div className="relative overflow-hidden bg-primary-container text-white p-6 rounded-xl shadow-lg group">
@@ -85,6 +105,14 @@ export default function Planner() {
           </div>
         </div>
       </div>
+
+      {showModal && (
+        <GoalModal
+          defaultDate={selectedDate}
+          onSubmit={handleCreateGoal}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }

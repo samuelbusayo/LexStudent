@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS topics (
   selected_pages TEXT DEFAULT '[]',
   total_document_pages INTEGER DEFAULT 0,
   materials TEXT DEFAULT '[]',
+  last_reviewed_at TEXT,
+  review_interval_days INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
@@ -52,6 +54,8 @@ CREATE TABLE IF NOT EXISTS goals (
   progress INTEGER DEFAULT 0,
   date TEXT DEFAULT '',
   status TEXT DEFAULT 'not_started',
+  topic_id INTEGER,
+  target_amount INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -163,6 +167,13 @@ CREATE TABLE IF NOT EXISTS materials (
   FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS countdowns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  days_remaining INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS study_notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   topic_id INTEGER NOT NULL,
@@ -174,4 +185,14 @@ CREATE TABLE IF NOT EXISTS study_notes (
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER DEFAULT 1,
+  type TEXT NOT NULL,
+  topic_id INTEGER,
+  goal_id INTEGER,
+  amount INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now'))
 );
