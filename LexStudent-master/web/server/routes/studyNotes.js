@@ -3,6 +3,23 @@ import { getDb } from "../db.js";
 
 const router = Router();
 
+// Get all notes across topics (for Personal Summaries on Revision page)
+router.get("/", (req, res) => {
+  const db = getDb();
+  const notes = db.prepare(
+    `SELECT sn.id, sn.text, sn.page, sn.type, sn.created_at,
+            t.id as topic_id, t.name as topic_name,
+            c.id as course_id, c.name as course_name
+     FROM study_notes sn
+     JOIN topics t ON sn.topic_id = t.id
+     JOIN courses c ON t.course_id = c.id
+     WHERE sn.type = 'note'
+     ORDER BY sn.created_at DESC
+     LIMIT 20`
+  ).all();
+  res.json(notes);
+});
+
 // Get all notes & highlights for a topic
 router.get("/:topicId", (req, res) => {
   const db = getDb();

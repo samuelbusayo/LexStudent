@@ -13,8 +13,8 @@ export default function RevisionMode() {
   const { data: gaps } = useKnowledgeGaps();
   const navigate = useNavigate();
   const { data: summaries } = useQuery({
-    queryKey: ['summaries'],
-    queryFn: () => api.get('/summaries').then(r => r.data),
+    queryKey: ['studyNotes'],
+    queryFn: () => api.get('/study-notes').then(r => r.data),
   });
 
   const gapCount = (gaps || []).length;
@@ -55,9 +55,13 @@ export default function RevisionMode() {
           </button>
         </div>
         <div className="flex gap-gutter overflow-x-auto pb-4 scrollbar-hide">
-          {(summaries || []).map((s) => (
-            <SummaryCard key={s.id} summary={s} />
-          ))}
+          {(summaries || []).length === 0 ? (
+            <p className="text-on-surface-variant font-body-md py-4">No notes yet. Start reading and add notes to see them here.</p>
+          ) : (
+            (summaries || []).map((s) => (
+              <SummaryCard key={s.id} summary={s} />
+            ))
+          )}
         </div>
       </section>
 

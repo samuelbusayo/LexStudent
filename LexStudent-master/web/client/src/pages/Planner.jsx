@@ -67,19 +67,6 @@ export default function Planner() {
             {filteredGoals.map((goal) => (
               <GoalCard key={goal.id} goal={goal} />
             ))}
-            <div className="relative overflow-hidden bg-primary-container text-white p-6 rounded-xl shadow-lg group">
-              <div className="absolute inset-0 opacity-20">
-                <div className="w-full h-full bg-gray-800"></div>
-              </div>
-              <div className="relative z-10">
-                <h3 className="font-h3 text-h3 mb-2">Final Revision: Contracts</h3>
-                <p className="font-body-md text-body-md opacity-90 mb-4">You have 12 concepts left to master before the weekend mock exam.</p>
-                <button className="bg-secondary-container text-secondary-fixed-dim px-4 py-2 rounded-lg font-button text-button inline-flex items-center gap-2 hover:bg-secondary-fixed transition-colors">
-                  Resume Session
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 

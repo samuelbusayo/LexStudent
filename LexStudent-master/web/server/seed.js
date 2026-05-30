@@ -38,13 +38,7 @@ export function seedDatabase(db) {
     )
     topicsData.forEach(t => insertTopic.run(...t))
 
-    // Goals (with topic_id and target_amount)
-    const goals = [
-      [1, 'TORTS', 'Read 5 pages of Property Law', 'Focus on Easements and Covenants.', 60, 'in_progress', '2026-05-29', 9, 5],
-      [2, 'CONSTITUTIONAL', 'Review Commerce Clause Cases', 'Analyze Wickard v. Filburn summary.', 0, 'not_started', '2026-05-30', null, 0],
-    ]
-    const insertGoal = db.prepare(`INSERT INTO goals (id, subject_tag, title, note, progress, status, date, topic_id, target_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    goals.forEach(g => insertGoal.run(...g))
+    // Goals table left empty — users create goals via the modal
 
     // Progress overall
     db.prepare(`INSERT INTO progress_overall (user_id, overall, streak, badge) VALUES (1, 48, 12, 'Juris Master')`).run()
@@ -82,14 +76,7 @@ export function seedDatabase(db) {
     const insertReminder = db.prepare(`INSERT INTO reminders (id, title, time, enabled) VALUES (?, ?, ?, ?)`)
     reminders.forEach(r => insertReminder.run(...r))
 
-    // Summaries
-    const summaries = [
-      [1, 'Torts', 'Duty of Care Elements', '"Foreseeability, Proximity, and whether it\'s fair/just to impose duty..."'],
-      [2, 'Contracts', 'Promissory Estoppel', '"Detrimental reliance on a promise, even without formal consideration..."'],
-      [3, 'Property', 'Easements in Gross', '"Personal right to use land, does not run with the dominant estate..."'],
-    ]
-    const insertSummary = db.prepare(`INSERT INTO summaries (id, subject, title, content) VALUES (?, ?, ?, ?)`)
-    summaries.forEach(s => insertSummary.run(...s))
+    // Summaries table left empty — Personal Summaries now sourced from study_notes
 
     // Cases
     const cases = [

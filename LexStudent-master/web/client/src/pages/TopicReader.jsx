@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import * as pdfjsLib from 'pdfjs-dist'
 import 'pdfjs-dist/web/pdf_viewer.css'
@@ -13,6 +13,7 @@ const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 
 export default function TopicReader() {
   const { courseId, topicId } = useParams()
+  const [searchParams] = useSearchParams()
   const { data: course } = useCourse(courseId)
   const { data: topics } = useTopics(courseId)
   const topic = topics?.find(t => t.id === Number(topicId))
@@ -24,6 +25,16 @@ export default function TopicReader() {
   const storageKey = `topic-reader-position-${topicId}`
 
   const [currentIndex, setCurrentIndex] = useState(() => {
+    const pageParam = searchParams.get('page')
+    if (pageParam) {
+      const targetPage = Number(pageParam)
+      if (!isNaN(targetPage) && targetPage > 0) {
+        const idx = selectedPages
+          ? selectedPages.indexOf(targetPage)
+          : targetPage - 1
+        if (idx >= 0) return idx
+      }
+    }
     try {
       const saved = localStorage.getItem(storageKey)
       if (saved !== null) {
@@ -146,6 +157,18 @@ export default function TopicReader() {
     const isDoc = ft && (ft.includes('docx') || ft.includes('doc') || ft === 'docx' || ft === 'doc')
     const isP = ft && (ft.includes('pdf') || ft === 'pdf' || ft.includes('pptx') || ft === 'pptx')
     if ((isP || isDoc) && totalPages > 0) {
+      const pageParam = searchParams.get('page')
+      if (pageParam) {
+        const targetPage = Number(pageParam)
+        if (!isNaN(targetPage) && targetPage > 0) {
+          const maxPage = selectedPages ? selectedPages.length : totalPages
+          const idx = selectedPages ? selectedPages.indexOf(targetPage) : targetPage - 1
+          if (idx >= 0 && idx < maxPage) {
+            setCurrentIndex(idx)
+            return
+          }
+        }
+      }
       try {
         const saved = localStorage.getItem(storageKey)
         if (saved) {
@@ -162,7 +185,7 @@ export default function TopicReader() {
         }
       } catch {}
     }
-  }, [totalPages, selectedPages, storageKey, fileType])
+  }, [totalPages, selectedPages, storageKey, fileType, searchParams])
 
   // ─── PDF: Render page with canvas + text layer ───
   const renderPdfPage = useCallback(async (pageNum, scale) => {

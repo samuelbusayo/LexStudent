@@ -69,7 +69,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-body-md font-bold">{overallProgress?.overall ?? 0}% Complete</p>
-              <p className="text-xs text-on-surface-variant">{overallProgress?.courses?.reduce((sum, c) => sum + (c.completed_topics || 0), 0)}/{overallProgress?.courses?.reduce((sum, c) => sum + (c.total_topics || 0), 0)} topics done</p>
+              <p className="text-xs text-on-surface-variant">{overallProgress?.courses?.reduce((sum, c) => sum + (c.completedTopics || 0), 0)}/{overallProgress?.courses?.reduce((sum, c) => sum + (c.totalTopics || 0), 0)} topics done</p>
             </div>
           </div>
         </section>
@@ -95,15 +95,15 @@ export default function Dashboard() {
                         <span className="material-symbols-outlined text-on-surface-variant">more_vert</span>
                       </div>
                       <h4 className="font-h3 text-h3 text-primary mb-1">{course.name}</h4>
-                      <p className="text-xs text-on-surface-variant mb-stack-md">{course.completed_topics ?? 0}/{course.total_topics ?? 0} Topics</p>
+                      <p className="text-xs text-on-surface-variant mb-stack-md">{course.completedTopics ?? 0}/{course.totalTopics ?? 0} Topics</p>
                     </div>
                     <div className="w-32">
                       <div className="flex justify-between text-xs font-bold text-primary mb-1">
                         <span>Progress</span>
-                        <span>{course.progress_percent ?? 0}%</span>
+                        <span>{course.progressPercent ?? 0}%</span>
                       </div>
                       <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden">
-                        <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${course.progress_percent ?? 0}%` }}></div>
+                        <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${course.progressPercent ?? 0}%` }}></div>
                       </div>
                     </div>
                   </div>
@@ -114,14 +114,14 @@ export default function Dashboard() {
                       <span className="material-symbols-outlined text-on-surface-variant">more_vert</span>
                     </div>
                     <h4 className="font-h3 text-h3 text-primary mb-1">{course.name}</h4>
-                    <p className="text-xs text-on-surface-variant mb-stack-md">{course.completed_topics ?? 0}/{course.total_topics ?? 0} Topics</p>
+                    <p className="text-xs text-on-surface-variant mb-stack-md">{course.completedTopics ?? 0}/{course.totalTopics ?? 0} Topics</p>
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs font-bold text-primary">
                         <span>Progress</span>
-                        <span>{course.progress_percent ?? 0}%</span>
+                        <span>{course.progressPercent ?? 0}%</span>
                       </div>
                       <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden">
-                        <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${course.progress_percent ?? 0}%` }}></div>
+                        <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${course.progressPercent ?? 0}%` }}></div>
                       </div>
                     </div>
                   </>
@@ -138,19 +138,19 @@ export default function Dashboard() {
         <section className="bg-surface-container-lowest p-stack-md rounded-xl border border-outline-variant/30">
           <h3 className="font-h3 text-h3 text-primary mb-stack-md">Recent Progress</h3>
           <div className="space-y-stack-md">
-            {(overallProgress?.courses || []).filter(c => c.total_topics > 0).slice(0, 4).map(c => (
-              <div key={c.course_id} className="space-y-2">
+            {(overallProgress?.courses || []).filter(c => c.totalTopics > 0).slice(0, 4).map(c => (
+              <div key={c.courseId} className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <p className="text-sm font-bold">{c.course_name}</p>
-                  <span className="text-xs font-bold text-secondary">{c.progress_percent}%</span>
+                  <p className="text-sm font-bold">{c.courseName}</p>
+                  <span className="text-xs font-bold text-secondary">{c.progressPercent}%</span>
                 </div>
                 <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${c.progress_percent}%` }}></div>
+                  <div className="bg-secondary h-full transition-all duration-1000" style={{ width: `${c.progressPercent}%` }}></div>
                 </div>
-                <p className="text-xs text-on-surface-variant">{c.completed_topics}/{c.total_topics} topics completed</p>
+                <p className="text-xs text-on-surface-variant">{c.completedTopics}/{c.totalTopics} topics completed</p>
               </div>
             ))}
-            {(overallProgress?.courses || []).filter(c => c.total_topics > 0).length === 0 && (
+            {(overallProgress?.courses || []).filter(c => c.totalTopics > 0).length === 0 && (
               <p className="text-sm text-on-surface-variant">No courses with topics yet.</p>
             )}
           </div>
