@@ -36,9 +36,20 @@ router.get("/", (req, res) => {
         OR EXISTS (SELECT 1 FROM study_notes sn3
                    WHERE sn3.topic_id = t.id AND sn3.type = 'highlight')
      ORDER BY updated_at DESC
-     LIMIT 20`
+     LIMIT 40`
   ).all();
-  res.json(rows);
+
+  // Post-filter: drop rows whose body is effectively empty (only whitespace text)
+  // and have no highlight rows
+  const filtered = rows.filter(r => {
+    if (r.highlight_count > 0) return true;
+    const nodes = parseBody(r.summary_body);
+    return nodes.some(n =>
+      n.type === "highlight" || (n.type === "text" && n.value && n.value.trim())
+    );
+  }).slice(0, 20);
+
+  res.json(filtered);
 });
 
 // ─── Get summary + highlights for a topic ───
