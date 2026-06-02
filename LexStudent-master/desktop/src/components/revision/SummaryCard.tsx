@@ -11,11 +11,24 @@ interface SummaryCardProps {
   }
 }
 
+function extractText(body?: string): string {
+  if (!body) return ''
+  try {
+    const nodes = JSON.parse(body)
+    if (Array.isArray(nodes)) {
+      return nodes
+        .filter((n: any) => n.type === 'text')
+        .map((n: any) => n.value || '')
+        .join('')
+    }
+  } catch {}
+  return body
+}
+
 export default function SummaryCard({ summary }: SummaryCardProps) {
-  const preview = summary.summaryBody
-    ? (summary.summaryBody.length > 120
-        ? summary.summaryBody.slice(0, 120) + '...'
-        : summary.summaryBody)
+  const text = extractText(summary.summaryBody)
+  const preview = text.trim()
+    ? (text.length > 120 ? text.slice(0, 120) + '...' : text)
     : null
 
   return (

@@ -2,6 +2,44 @@ import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 
+interface BodyNode {
+  type: 'text' | 'highlight'
+  value?: string
+  text?: string
+  page?: number
+  paragraph?: number | null
+  anchorText?: string
+  sourceId?: number | null
+}
+
+/** Render structured body nodes inline: text as prose, highlights as clickable chips */
+function StructuredBody({ nodes, onHighlightClick }: { nodes: BodyNode[]; onHighlightClick: (node: BodyNode) => void }) {
+  if (!nodes || nodes.length === 0) return null
+  return (
+    <div className="prose prose-sm max-w-none text-on-surface leading-relaxed whitespace-pre-wrap">
+      {nodes.map((node, i) => {
+        if (node.type === 'text') {
+          return <span key={i}>{node.value}</span>
+        }
+        if (node.type === 'highlight') {
+          return (
+            <span
+              key={i}
+              onClick={(e) => { e.stopPropagation(); onHighlightClick(node) }}
+              className="inline bg-amber-100 border border-amber-300 rounded-md px-1.5 py-0.5 mx-0.5 cursor-pointer hover:bg-amber-200 transition-colors whitespace-normal"
+              title={`Page ${node.page}${node.paragraph != null ? ', ¶' + node.paragraph : ''} — click to open in reader`}
+            >
+              <span className="italic text-amber-900">"{node.text}"</span>
+              <span className="text-[10px] text-amber-700 ml-1 not-italic">p.{node.page}{node.paragraph != null ? ` ¶${node.paragraph}` : ''}</span>
+            </span>
+          )
+        }
+        return null
+      })}
+    </div>
+  )
+}
+
 export default function SummaryView() {
   const { topicId } = useParams<{ topicId: string }>()
   const [searchParams] = useSearchParams()
@@ -23,8 +61,9 @@ export default function SummaryView() {
   const topicName = topicInfo?.topicName || 'Topic Summary'
   const courseName = topicInfo?.courseName || ''
 
-  const highlights: any[] = (data as any)?.highlights || []
-  const summaryBody: string = (data as any)?.body || ''
+  // body is now a structured array of nodes
+  const bodyNodes: BodyNode[] = (data as any)?.body || []
+  const highlightCount = bodyNodes.filter((n) => n.type === 'highlight').length
 
   const formatTime = (iso: string) => {
     try {
@@ -34,10 +73,10 @@ export default function SummaryView() {
     } catch { return '' }
   }
 
-  const handleHighlightClick = (highlight: any) => {
+  const handleHighlightClick = (node: BodyNode) => {
     const cId = courseId || topicInfo?.courseId
     if (!cId) return
-    const url = `/courses/${cId}/topics/${topicId}/read?page=${highlight.page}${highlight.paragraph != null ? `&para=${highlight.paragraph}` : ''}`
+    const url = `/courses/${cId}/topics/${topicId}/read?page=${node.page}${node.paragraph != null ? `&para=${node.paragraph}` : ''}`
     navigate(url, { state: { from: 'summary', topicId } })
   }
 
@@ -68,22 +107,20 @@ export default function SummaryView() {
           )}
           <h1 className="font-h1 text-primary-container">{topicName}</h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            {highlights.length} highlight{highlights.length !== 1 ? 's' : ''}
+            {highlightCount} highlight{highlightCount !== 1 ? 's' : ''}
             {(data as any)?.updatedAt && ` · Last updated ${formatTime((data as any).updatedAt)}`}
           </p>
         </div>
       </div>
 
-      {/* Summary body */}
+      {/* Summary body with inline highlights */}
       <section className="bg-white rounded-xl p-6 border border-outline-variant/30">
         <div className="flex items-center gap-2 mb-4">
           <span className="material-symbols-outlined text-primary-container">edit_note</span>
           <h2 className="font-h2 text-primary-container">Summary Notes</h2>
         </div>
-        {summaryBody ? (
-          <div className="prose prose-sm max-w-none text-on-surface leading-relaxed whitespace-pre-wrap">
-            {summaryBody}
-          </div>
+        {bodyNodes.length > 0 ? (
+          <StructuredBody nodes={bodyNodes} onHighlightClick={handleHighlightClick} />
         ) : (
           <p className="text-on-surface-variant font-body-md italic">
             No summary notes written yet. Open the reader to start writing.
@@ -91,40 +128,8 @@ export default function SummaryView() {
         )}
       </section>
 
-      {/* Highlights */}
-      {highlights.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-600">highlight</span>
-            <h2 className="font-h2 text-primary-container">Highlights</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {highlights.map((h: any) => (
-              <button
-                key={h.id}
-                onClick={() => handleHighlightClick(h)}
-                className="text-left bg-amber-50 rounded-xl p-4 border border-amber-200 hover:shadow-md hover:border-amber-300 transition-all group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">highlight</span>
-                    p.{h.page}{h.paragraph != null ? ` ¶${h.paragraph}` : ''}
-                  </span>
-                  <span className="text-[10px] text-on-surface-variant">{formatTime(h.createdAt || h.created_at)}</span>
-                </div>
-                <p className="text-sm text-on-surface leading-relaxed italic">{h.text}</p>
-                <span className="mt-2 inline-flex items-center gap-1 text-[10px] text-amber-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="material-symbols-outlined text-[12px]">open_in_new</span>
-                  Open in reader
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Empty state */}
-      {!summaryBody && highlights.length === 0 && (
+      {bodyNodes.length === 0 && (
         <div className="bg-white rounded-xl p-12 border border-outline-variant/30 text-center">
           <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4">note_add</span>
           <h3 className="font-h2 text-primary-container mb-2">No notes yet</h3>

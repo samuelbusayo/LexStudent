@@ -3,6 +3,16 @@ import { getDb } from "../db.js";
 
 const router = Router();
 
+/** Parse body: valid JSON array → return it; plain text → wrap; empty → [] */
+function parseBody(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return raw.trim() ? [{ type: "text", value: raw }] : [];
+}
+
 // ─── Revision feed: one card per topic that has a summary or highlights ───
 router.get("/", (req, res) => {
   const db = getDb();
@@ -22,7 +32,7 @@ router.get("/", (req, res) => {
      FROM topics t
      JOIN courses c ON t.course_id = c.id
      LEFT JOIN topic_summaries ts ON ts.topic_id = t.id
-     WHERE ts.id IS NOT NULL
+     WHERE (ts.id IS NOT NULL AND ts.body IS NOT NULL AND TRIM(ts.body) != '' AND TRIM(ts.body) != '[]')
         OR EXISTS (SELECT 1 FROM study_notes sn3
                    WHERE sn3.topic_id = t.id AND sn3.type = 'highlight')
      ORDER BY updated_at DESC
@@ -48,19 +58,59 @@ router.get("/:topicId/summary", (req, res) => {
      ORDER BY page ASC, paragraph ASC, created_at ASC`
   ).all(topicId);
 
+  // Parse structured body (with plain-text migration)
+  let bodyNodes = parseBody(summary?.body);
+
+  // Migration: embed existing highlight rows if body has no highlight nodes yet
+  const hasEmbeddedHighlights = bodyNodes.some(n => n.type === "highlight");
+  if (!hasEmbeddedHighlights && highlights.length > 0) {
+    for (const h of highlights) {
+      bodyNodes.push({
+        type: "highlight",
+        text: h.text,
+        page: h.page,
+        paragraph: h.paragraph ?? null,
+        anchorText: h.anchor_text || "",
+        sourceId: h.id,
+      });
+    }
+  }
+
   res.json({
-    body: summary?.body || "",
+    body: bodyNodes,
     updatedAt: summary?.updated_at || null,
     highlights,
   });
 });
 
-// ─── Upsert summary body for a topic ───
+// ─── Upsert summary body for a topic (structured JSON array) ───
 router.put("/:topicId/summary", (req, res) => {
   const db = getDb();
   const { topicId } = req.params;
   const { body } = req.body;
   if (body === undefined) return res.status(400).json({ error: "body is required" });
+
+  // Accept array or JSON string; legacy plain text is wrapped
+  let bodyStr;
+  if (Array.isArray(body)) {
+    bodyStr = JSON.stringify(body);
+  } else if (typeof body === "string") {
+    try {
+      const p = JSON.parse(body);
+      bodyStr = Array.isArray(p) ? body : JSON.stringify([{ type: "text", value: body }]);
+    } catch {
+      bodyStr = JSON.stringify(body.trim() ? [{ type: "text", value: body }] : []);
+    }
+  } else {
+    return res.status(400).json({ error: "body must be an array or string" });
+  }
+
+  // Normalize: if body only has empty/whitespace text nodes, collapse to "[]"
+  const parsed = parseBody(bodyStr);
+  const hasContent = parsed.some(n =>
+    n.type === "highlight" || (n.type === "text" && n.value && n.value.trim())
+  );
+  if (!hasContent) bodyStr = "[]";
 
   const existing = db.prepare(
     "SELECT id FROM topic_summaries WHERE topic_id = ?"
@@ -69,18 +119,36 @@ router.put("/:topicId/summary", (req, res) => {
   if (existing) {
     db.prepare(
       "UPDATE topic_summaries SET body = ?, updated_at = datetime('now') WHERE topic_id = ?"
-    ).run(body, topicId);
+    ).run(bodyStr, topicId);
   } else {
     db.prepare(
       "INSERT INTO topic_summaries (topic_id, user_id, body) VALUES (?, 1, ?)"
-    ).run(topicId, body);
+    ).run(topicId, bodyStr);
+  }
+
+  // Clean up orphaned highlight rows: delete any study_notes highlights
+  // for this topic whose id is no longer referenced as a sourceId in the body
+  const savedNodes = parseBody(bodyStr);
+  const keepIds = savedNodes
+    .filter(n => n.type === "highlight" && n.sourceId)
+    .map(n => n.sourceId);
+  if (keepIds.length > 0) {
+    const placeholders = keepIds.map(() => "?").join(",");
+    db.prepare(
+      `DELETE FROM study_notes WHERE topic_id = ? AND type = 'highlight' AND id NOT IN (${placeholders})`
+    ).run(topicId, ...keepIds);
+  } else {
+    // No highlights in body — remove all highlight rows for this topic
+    db.prepare(
+      "DELETE FROM study_notes WHERE topic_id = ? AND type = 'highlight'"
+    ).run(topicId);
   }
 
   const summary = db.prepare(
     "SELECT id, topic_id, user_id, body, created_at, updated_at FROM topic_summaries WHERE topic_id = ?"
   ).get(topicId);
 
-  res.json(summary);
+  res.json({ ...summary, body: parseBody(summary?.body) });
 });
 
 // ─── Create a highlight (immutable) ───

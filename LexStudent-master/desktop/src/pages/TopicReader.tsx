@@ -5,6 +5,100 @@ import api from '../services/api'
 
 const AUTOSAVE_DELAY = 1200
 
+/** Resolve target page index: ?page= deep-link → localStorage → 0 */
+function resolveTargetIndex(
+  pageCount: number,
+  selPages: number[] | null,
+  params: URLSearchParams,
+  key: string
+): number {
+  const pageParam = params.get('page')
+  if (pageParam) {
+    const target = Number(pageParam)
+    if (!isNaN(target) && target > 0) {
+      const idx = selPages ? selPages.indexOf(target) : target - 1
+      if (idx >= 0 && (pageCount <= 0 || idx < pageCount)) return idx
+    }
+  }
+  if (!pageParam) {
+    try {
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.currentPage !== undefined) {
+          const idx = selPages ? selPages.indexOf(parsed.currentPage) : parsed.currentPage - 1
+          if (idx >= 0 && (pageCount <= 0 || idx < pageCount)) return idx
+        }
+      }
+    } catch {}
+  }
+  return 0
+}
+
+interface BodyNode {
+  type: 'text' | 'highlight'
+  value?: string
+  text?: string
+  page?: number
+  paragraph?: number | null
+  anchorText?: string
+  sourceId?: number | null
+}
+
+/** HTML helpers for contentEditable structured editor */
+function escHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function escAttr(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function nodesToHtml(nodes: BodyNode[]) {
+  if (!nodes || nodes.length === 0) return ''
+  return nodes.map((n) => {
+    if (n.type === 'text') return escHtml(n.value || '').replace(/\n/g, '<br>')
+    if (n.type === 'highlight') {
+      return `<span contenteditable="false" class="hl-chip" data-sid="${n.sourceId || ''}" data-page="${n.page || 1}" data-para="${n.paragraph ?? ''}" data-text="${escAttr(n.text || '')}" data-anchor="${escAttr(n.anchorText || '')}"><span class="hl-quote">"${escHtml(n.text || '')}"</span><span class="hl-ref">p.${n.page || 1}${n.paragraph != null ? ' ¶' + n.paragraph : ''}</span><span class="hl-del" data-del="1">×</span></span>`
+    }
+    return ''
+  }).join('')
+}
+
+function parseEditorDom(el: HTMLElement): BodyNode[] {
+  const result: BodyNode[] = []
+  const walk = (node: ChildNode) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent) result.push({ type: 'text', value: node.textContent })
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const elem = node as HTMLElement
+      if (elem.classList?.contains('hl-chip')) {
+        result.push({
+          type: 'highlight',
+          text: elem.dataset.text || '',
+          page: parseInt(elem.dataset.page || '1') || 1,
+          paragraph: elem.dataset.para !== '' && elem.dataset.para !== undefined ? parseInt(elem.dataset.para) : null,
+          anchorText: elem.dataset.anchor || '',
+          sourceId: elem.dataset.sid ? parseInt(elem.dataset.sid) : null,
+        })
+      } else if (elem.tagName === 'BR') {
+        result.push({ type: 'text', value: '\n' })
+      } else {
+        for (const child of Array.from(elem.childNodes)) walk(child)
+      }
+    }
+  }
+  for (const child of Array.from(el.childNodes)) walk(child)
+  const merged: BodyNode[] = []
+  for (const n of result) {
+    if (n.type === 'text' && merged.length > 0 && merged[merged.length - 1].type === 'text') {
+      merged[merged.length - 1].value = (merged[merged.length - 1].value || '') + (n.value || '')
+    } else {
+      merged.push({ ...n })
+    }
+  }
+  return merged
+}
+
 export default function TopicReader() {
   const { courseId, topicId } = useParams<{ courseId: string; topicId: string }>()
   const [searchParams] = useSearchParams()
@@ -20,44 +114,24 @@ export default function TopicReader() {
 
   const storageKey = `topic-reader-position-${topicId}`
 
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    const pageParam = searchParams.get('page')
-    if (pageParam) {
-      const targetPage = Number(pageParam)
-      if (!isNaN(targetPage) && targetPage > 0) {
-        const idx = selectedPages
-          ? selectedPages.indexOf(targetPage)
-          : targetPage - 1
-        if (idx >= 0) return idx
-      }
-    }
-    try {
-      const saved = localStorage.getItem(storageKey)
-      if (saved !== null) {
-        const parsed = JSON.parse(saved)
-        if (parsed.currentPage !== undefined) {
-          return selectedPages
-            ? selectedPages.indexOf(parsed.currentPage)
-            : parsed.currentPage - 1
-        }
-      }
-    } catch {}
-    return 0
-  })
+  const [currentIndex, setCurrentIndex] = useState(() =>
+    resolveTargetIndex(0, selectedPages, searchParams, storageKey)
+  )
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Summary Notes state
-  const [summaryBody, setSummaryBody] = useState('')
+  // Summary Notes state (structured body: array of text + highlight nodes)
+  const [bodyNodes, setBodyNodes] = useState<BodyNode[]>([])
   const [summaryLoaded, setSummaryLoaded] = useState(false)
-  const [highlights, setHighlights] = useState<any[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [savingNote, setSavingNote] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedBodyRef = useRef('')
+  const editorRef = useRef<HTMLDivElement | null>(null)
+  const bodyNodesRef = useRef<BodyNode[]>([])
 
   const visiblePageCount = selectedPages ? selectedPages.length : totalPages
   const currentPage = selectedPages ? selectedPages[currentIndex] : currentIndex + 1
@@ -66,10 +140,10 @@ export default function TopicReader() {
   const loadSummaryData = useCallback(async () => {
     try {
       const res = await api.get(`/study-notes/${topicId}/summary`)
-      const data = res.data as any
-      setSummaryBody(data.body || '')
-      lastSavedBodyRef.current = data.body || ''
-      setHighlights(data.highlights || [])
+      const nodes: BodyNode[] = (res.data as any).body || []
+      setBodyNodes(nodes)
+      bodyNodesRef.current = nodes
+      lastSavedBodyRef.current = JSON.stringify(nodes)
       setSummaryLoaded(true)
     } catch (err) {
       console.error('Failed to load summary data', err)
@@ -81,13 +155,24 @@ export default function TopicReader() {
     if (topicId) loadSummaryData()
   }, [topicId, loadSummaryData])
 
-  // ─── Autosave summary ───
-  const saveSummary = useCallback(async (body: string) => {
-    if (body === lastSavedBodyRef.current) return
+  // Sync contentEditable DOM after data loads
+  const syncEditorDom = useCallback((nodes: BodyNode[]) => {
+    if (!editorRef.current) return
+    editorRef.current.innerHTML = nodesToHtml(nodes)
+  }, [])
+
+  useEffect(() => {
+    if (summaryLoaded) syncEditorDom(bodyNodes)
+  }, [summaryLoaded])
+
+  // ─── Autosave summary (debounced) ───
+  const saveSummary = useCallback(async (nodes: BodyNode[]) => {
+    const json = JSON.stringify(nodes)
+    if (json === lastSavedBodyRef.current) return
     setSaveStatus('saving')
     try {
-      await api.put(`/study-notes/${topicId}/summary`, { body })
-      lastSavedBodyRef.current = body
+      await api.put(`/study-notes/${topicId}/summary`, { body: nodes })
+      lastSavedBodyRef.current = json
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(''), 2000)
     } catch (err) {
@@ -96,12 +181,48 @@ export default function TopicReader() {
     }
   }, [topicId])
 
-  const handleSummaryChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newBody = e.target.value
-    setSummaryBody(newBody)
+  const handleEditorInput = useCallback(() => {
+    if (!editorRef.current) return
+    const newNodes = parseEditorDom(editorRef.current)
+    bodyNodesRef.current = newNodes
+    setBodyNodes(newNodes)
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current)
-    autosaveTimerRef.current = setTimeout(() => saveSummary(newBody), AUTOSAVE_DELAY)
+    autosaveTimerRef.current = setTimeout(() => saveSummary(newNodes), AUTOSAVE_DELAY)
   }, [saveSummary])
+
+  const handleEditorPaste = useCallback((e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain')
+    document.execCommand('insertText', false, text)
+  }, [])
+
+  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      document.execCommand('insertLineBreak')
+    }
+  }, [])
+
+  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('[data-del]')) {
+      e.preventDefault()
+      const chip = target.closest('.hl-chip') as HTMLElement | null
+      if (!chip) return
+      const sid = parseInt(chip.dataset.sid || '0')
+      if (sid) deleteHighlightBySourceId(sid)
+      return
+    }
+    const chip = target.closest('.hl-chip') as HTMLElement | null
+    if (!chip) return
+    const page = parseInt(chip.dataset.page || '1')
+    const para = chip.dataset.para !== '' && chip.dataset.para !== undefined ? parseInt(chip.dataset.para!) : null
+    const targetIndex = selectedPages ? selectedPages.indexOf(page) : page - 1
+    if (targetIndex >= 0) {
+      setCurrentIndex(targetIndex)
+      try { localStorage.setItem(storageKey, JSON.stringify({ currentPage: page, timestamp: Date.now() })) } catch {}
+    }
+  }, [selectedPages, storageKey])
 
   useEffect(() => {
     return () => {
@@ -130,36 +251,12 @@ export default function TopicReader() {
       })
   }, [topic, topicId])
 
-  // ─── Position restore ───
+  // ─── Position restore (safety net for param changes) ───
   useEffect(() => {
     if (totalPages > 0) {
-      const pageParam = searchParams.get('page')
-      if (pageParam) {
-        const targetPage = Number(pageParam)
-        if (!isNaN(targetPage) && targetPage > 0) {
-          const maxPage = selectedPages ? selectedPages.length : totalPages
-          const idx = selectedPages ? selectedPages.indexOf(targetPage) : targetPage - 1
-          if (idx >= 0 && idx < maxPage) {
-            setCurrentIndex(idx)
-            return
-          }
-        }
-      }
-      try {
-        const saved = localStorage.getItem(storageKey)
-        if (saved) {
-          const { currentPage } = JSON.parse(saved)
-          if (currentPage !== undefined) {
-            const maxPage = selectedPages ? selectedPages.length : totalPages
-            const targetIndex = selectedPages
-              ? selectedPages.indexOf(currentPage)
-              : currentPage - 1
-            if (targetIndex >= 0 && targetIndex < maxPage) {
-              setCurrentIndex(targetIndex)
-            }
-          }
-        }
-      } catch {}
+      const maxPage = selectedPages ? selectedPages.length : totalPages
+      const idx = resolveTargetIndex(maxPage, selectedPages, searchParams, storageKey)
+      setCurrentIndex((prev) => prev !== idx ? idx : prev)
     }
   }, [totalPages, selectedPages, storageKey, searchParams])
 
@@ -208,7 +305,7 @@ export default function TopicReader() {
     }
   }
 
-  // ─── Highlight ───
+  // ─── Highlight: capture paragraph anchor, append inline ───
   const addHighlight = async () => {
     const selection = window.getSelection()
     const selectedText = selection?.toString().trim()
@@ -216,10 +313,7 @@ export default function TopicReader() {
     setSavingNote(true)
 
     let paragraph: number | null = null
-    let anchorText = ''
-    try {
-      anchorText = selectedText.slice(0, 60)
-    } catch {}
+    const anchorText = selectedText.slice(0, 60)
 
     try {
       const res = await api.post(`/study-notes/${topicId}/highlight`, {
@@ -228,7 +322,35 @@ export default function TopicReader() {
         anchorText,
         text: selectedText,
       })
-      setHighlights((prev) => [...prev, res.data])
+      const sourceId = (res.data as any).id
+
+      const currentNodes = editorRef.current
+        ? parseEditorDom(editorRef.current)
+        : [...bodyNodesRef.current]
+      currentNodes.push({
+        type: 'highlight',
+        text: selectedText,
+        page: currentPage,
+        paragraph,
+        anchorText,
+        sourceId,
+      })
+
+      bodyNodesRef.current = currentNodes
+      setBodyNodes(currentNodes)
+      syncEditorDom(currentNodes)
+
+      if (editorRef.current) {
+        const range = document.createRange()
+        const sel2 = window.getSelection()
+        range.selectNodeContents(editorRef.current)
+        range.collapse(false)
+        sel2?.removeAllRanges()
+        sel2?.addRange(range)
+        editorRef.current.focus()
+      }
+
+      saveSummary(currentNodes)
       selection?.removeAllRanges()
     } catch (err) {
       console.error('Failed to save highlight', err)
@@ -236,16 +358,25 @@ export default function TopicReader() {
     setSavingNote(false)
   }
 
-  const deleteHighlight = async (highlightId: number) => {
+  const deleteHighlightBySourceId = async (sourceId: number) => {
     try {
-      await api.delete(`/study-notes/${highlightId}`)
-      setHighlights((prev) => prev.filter((h) => h.id !== highlightId))
+      await api.delete(`/study-notes/${sourceId}`)
+      const currentNodes = editorRef.current
+        ? parseEditorDom(editorRef.current)
+        : [...bodyNodesRef.current]
+      const filtered = currentNodes.filter((n) => !(n.type === 'highlight' && n.sourceId === sourceId))
+      bodyNodesRef.current = filtered
+      setBodyNodes(filtered)
+      syncEditorDom(filtered)
+      saveSummary(filtered)
     } catch (err) {
       console.error('Failed to delete highlight', err)
     }
   }
 
-  const comprehension = Math.min(100, Math.round((summaryBody.length > 0 ? 20 : 0) + (highlights.length * 8)))
+  const highlightCount = bodyNodes.filter((n) => n.type === 'highlight').length
+  const hasText = bodyNodes.some((n) => n.type === 'text' && (n.value || '').trim())
+  const comprehension = Math.min(100, Math.round((hasText ? 20 : 0) + (highlightCount * 8)))
 
   if (!topic) {
     return (
@@ -257,11 +388,6 @@ export default function TopicReader() {
         </div>
       </div>
     )
-  }
-
-  const formatTime = (iso: string) => {
-    try { return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
-    catch { return '' }
   }
 
   return (
@@ -331,7 +457,7 @@ export default function TopicReader() {
           )}
         </div>
 
-        {/* ═══ Right sidebar — Summary Notes ═══ */}
+        {/* ═══ Right sidebar — Summary Notes (inline editor) ═══ */}
         {sidebarOpen && (
           <aside className="w-80 bg-surface-container-lowest border-l border-outline-variant/30 flex flex-col flex-shrink-0 overflow-hidden">
             {/* Header */}
@@ -344,7 +470,7 @@ export default function TopicReader() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-on-surface-variant mt-0.5">{highlights.length} highlight{highlights.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">{highlightCount} highlight{highlightCount !== 1 ? 's' : ''}</p>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -359,20 +485,24 @@ export default function TopicReader() {
                 </div>
               </div>
 
-              {/* Editable summary textarea */}
+              {/* Inline structured editor (contentEditable) */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm text-primary-container">edit_note</span>
-                  <span className="text-xs font-label-caps text-on-surface-variant">Add Summary Notes</span>
+                  <span className="text-xs font-label-caps text-on-surface-variant">Summary &amp; Highlights</span>
                 </div>
-                <textarea
-                  value={summaryBody}
-                  onChange={handleSummaryChange}
-                  placeholder="Write your summary notes for this topic... This is a single summary for the entire topic — type your thoughts, key takeaways, and observations here."
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-primary outline-none min-h-[120px]"
-                  rows={6}
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleEditorInput}
+                  onPaste={handleEditorPaste}
+                  onKeyDown={handleEditorKeyDown}
+                  onClick={handleEditorClick}
+                  data-placeholder="Write your summary notes here. Select text in the document and click Highlight to embed passages inline."
+                  className="summary-editor w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none min-h-[160px] leading-relaxed whitespace-pre-wrap"
                 />
-                <p className="text-[10px] text-on-surface-variant">Auto-saves as you type. Select text in the document and click Highlight below to pin it here.</p>
+                <p className="text-[10px] text-on-surface-variant">Auto-saves as you type. Highlights are embedded inline — click one to jump to that page.</p>
               </div>
 
               {/* Highlight button */}
@@ -385,32 +515,8 @@ export default function TopicReader() {
                 {savingNote ? 'Saving...' : 'Highlight Selected Text'}
               </button>
 
-              {/* Highlight cards */}
-              {highlights.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-label-caps text-on-surface-variant">Highlights</span>
-                  {highlights.map((h: any) => (
-                    <div key={h.id} className="rounded-lg p-3 border bg-amber-50 border-amber-200">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[12px]">highlight</span>
-                          p.{h.page}{h.paragraph != null ? ` ¶${h.paragraph}` : ''}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-on-surface-variant">{formatTime(h.createdAt || h.created_at)}</span>
-                          <button onClick={() => deleteHighlight(h.id)} className="p-0.5 text-on-surface-variant hover:text-error transition-colors" title="Delete highlight">
-                            <span className="material-symbols-outlined text-[14px]">delete</span>
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-sm text-on-surface leading-relaxed italic">{h.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               {/* Empty state */}
-              {!summaryBody && highlights.length === 0 && summaryLoaded && (
+              {bodyNodes.length === 0 && summaryLoaded && (
                 <div className="text-center py-6 text-on-surface-variant">
                   <span className="material-symbols-outlined text-3xl mb-2">note_add</span>
                   <p className="text-sm font-bold">Start taking notes</p>
@@ -431,6 +537,28 @@ export default function TopicReader() {
           </aside>
         )}
       </div>
+
+      {/* Scoped styles for inline highlight chips */}
+      <style>{`
+        .hl-chip {
+          display: inline-block;
+          vertical-align: baseline;
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+          border-radius: 6px;
+          padding: 1px 6px;
+          margin: 0 2px;
+          cursor: pointer;
+          user-select: none;
+          white-space: normal;
+          line-height: 1.8;
+        }
+        .hl-chip .hl-quote { font-style: italic; color: #92400e; }
+        .hl-chip .hl-ref { font-size: 10px; color: #b45309; margin-left: 4px; font-style: normal; }
+        .hl-chip .hl-del { margin-left: 4px; color: #b45309; cursor: pointer; font-weight: bold; font-style: normal; opacity: 0; transition: opacity 0.15s; }
+        .hl-chip:hover .hl-del { opacity: 1; }
+        .summary-editor:empty::before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; }
+      `}</style>
     </div>
   )
 }

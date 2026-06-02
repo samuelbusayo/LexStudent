@@ -1,11 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+function extractText(body) {
+  if (!body) return '';
+  try {
+    const nodes = typeof body === 'string' ? JSON.parse(body) : body;
+    if (Array.isArray(nodes)) {
+      return nodes
+        .filter(n => n.type === 'text')
+        .map(n => n.value || '')
+        .join('');
+    }
+  } catch {}
+  return typeof body === 'string' ? body : '';
+}
+
 export default function SummaryCard({ summary }) {
-  const preview = summary.summaryBody
-    ? (summary.summaryBody.length > 120
-        ? summary.summaryBody.slice(0, 120) + '...'
-        : summary.summaryBody)
+  const text = extractText(summary.summaryBody);
+  const preview = text.trim()
+    ? (text.length > 120 ? text.slice(0, 120) + '...' : text)
     : null;
 
   return (
