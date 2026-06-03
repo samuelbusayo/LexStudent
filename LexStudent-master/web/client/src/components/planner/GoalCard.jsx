@@ -16,17 +16,21 @@ export default function GoalCard({ goal, occurrence }) {
   if (hasTopicLink && hasTargetPages) {
     const selPages = goal.selectedPages?.length > 0 ? goal.selectedPages : null;
     const pagesRead = goal.pagesRead || 0;
-    let readSet;
+    const baseline = goal.baselinePagesRead || 0;
+    // Only count pages read AFTER the goal was created
+    let readSinceSet;
     if (selPages) {
-      readSet = new Set(selPages.slice(0, pagesRead));
+      readSinceSet = new Set(selPages.slice(baseline, pagesRead));
     } else {
-      readSet = new Set(Array.from({ length: pagesRead }, (_, i) => i + 1));
+      readSinceSet = new Set(
+        Array.from({ length: Math.max(0, pagesRead - baseline) }, (_, i) => baseline + i + 1)
+      );
     }
-    targetPagesRead = goal.targetPages.filter(p => readSet.has(p)).length;
+    targetPagesRead = goal.targetPages.filter(p => readSinceSet.has(p)).length;
     progress = goal.targetPages.length > 0
       ? Math.round((targetPagesRead / goal.targetPages.length) * 100)
       : 0;
-    firstUnread = goal.targetPages.find(p => !readSet.has(p)) || goal.targetPages[0] || 1;
+    firstUnread = goal.targetPages.find(p => !readSinceSet.has(p)) || goal.targetPages[0] || 1;
   } else {
     progress = occurrence?.progress ?? goal.progress ?? 0;
   }
@@ -36,7 +40,10 @@ export default function GoalCard({ goal, occurrence }) {
 
   const handleClick = () => {
     if (!hasTopicLink) return;
-    navigate(`/courses/${goal.courseId}/topics/${goal.topicId}/read?page=${firstUnread}`);
+    navigate(
+      `/courses/${goal.courseId}/topics/${goal.topicId}/read?page=${firstUnread}`,
+      { state: { from: 'planner' } }
+    );
   };
 
   const handleIncrement = (e) => {

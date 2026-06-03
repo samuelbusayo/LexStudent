@@ -25,6 +25,7 @@ function enrichGoal(db, g) {
     topic_id: g.topic_id,
     target_amount: g.target_amount,
     target_pages: safeJson(g.target_pages),
+    baseline_pages_read: g.baseline_pages_read || 0,
     created_at: g.created_at,
     updated_at: g.updated_at,
     course_id: g.course_id || null,
@@ -40,6 +41,7 @@ const GOAL_QUERY = `
   SELECT
     g.id, g.user_id, g.subject_tag, g.title, g.note, g.progress,
     g.date, g.status, g.topic_id, g.target_amount, g.target_pages,
+    g.baseline_pages_read,
     g.created_at, g.updated_at,
     t.course_id, t.name AS topic_name,
     t.selected_pages, t.pages_read, t.total_document_pages
@@ -94,12 +96,19 @@ router.post("/", (req, res) => {
   const dateList = Array.isArray(dates) && dates.length > 0 ? dates : (date ? [date] : []);
   const firstDate = dateList[0] || '';
 
+  // Snapshot the topic's current pages_read so the goal starts fresh
+  let baseline = 0;
+  if (topicId) {
+    const topic = db.prepare("SELECT pages_read FROM topics WHERE id = ?").get(topicId);
+    if (topic) baseline = topic.pages_read || 0;
+  }
+
   const result = db.prepare(
-    `INSERT INTO goals (subject_tag, title, note, progress, date, status, topic_id, target_amount, target_pages)
-     VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)`
+    `INSERT INTO goals (subject_tag, title, note, progress, date, status, topic_id, target_amount, target_pages, baseline_pages_read)
+     VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`
   ).run(
     subjectTag || '', title.trim(), note || '', firstDate,
-    status || 'not_started', topicId || null, amount, tpJson
+    status || 'not_started', topicId || null, amount, tpJson, baseline
   );
   const goalId = result.lastInsertRowid;
 

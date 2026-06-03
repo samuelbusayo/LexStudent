@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS goals (
   status TEXT DEFAULT 'not_started',
   topic_id INTEGER,
   target_amount INTEGER DEFAULT 0,
+  target_pages TEXT DEFAULT '[]',
+  baseline_pages_read INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

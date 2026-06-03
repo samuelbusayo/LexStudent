@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import * as pdfjsLib from 'pdfjs-dist'
@@ -102,11 +102,17 @@ export default function TopicReader() {
   const { data: topics } = useTopics(courseId)
   const topic = topics?.find(t => t.id === Number(topicId))
 
-  const selectedPages = topic?.selectedPages?.length > 0
-    ? [...topic.selectedPages].sort((a, b) => a - b)
-    : null
+  // Memoize so the reference is stable across renders — otherwise the
+  // restore-position effect re-runs constantly and forces the user back
+  // to the deep-linked ?page= every time React re-renders.
+  const selectedPages = useMemo(() => (
+    topic?.selectedPages?.length > 0
+      ? [...topic.selectedPages].sort((a, b) => a - b)
+      : null
+  ), [topic?.selectedPages])
 
   const storageKey = `topic-reader-position-${topicId}`
+  const hasRestoredRef = useRef(false)
 
   const [currentIndex, setCurrentIndex] = useState(() =>
     resolveTargetIndex(0, selectedPages, searchParams, storageKey)
@@ -303,14 +309,20 @@ export default function TopicReader() {
     loadDocument()
   }, [loadDocument])
 
-  // Restore position after totalPages/selectedPages are known (safety net for param changes)
+  // Restore position once, after the document has loaded. Don't re-run
+  // on subsequent renders — that would fight user navigation by snapping
+  // back to ?page= every time a re-render happens.
   useEffect(() => {
-    if (totalPages > 0) {
+    if (totalPages > 0 && !hasRestoredRef.current) {
+      hasRestoredRef.current = true
       const maxPage = selectedPages ? selectedPages.length : totalPages
       const idx = resolveTargetIndex(maxPage, selectedPages, searchParams, storageKey)
       setCurrentIndex(prev => prev !== idx ? idx : prev)
     }
   }, [totalPages, selectedPages, storageKey, searchParams])
+
+  // Reset the restore guard if the user navigates to a different topic
+  useEffect(() => { hasRestoredRef.current = false }, [topicId])
 
   // ─── Deep-link paragraph scrolling ───
   useEffect(() => {
@@ -473,9 +485,10 @@ export default function TopicReader() {
     return next
   })
 
-  // Back button: honor router state from summary view
+  // Back button: honor router state — go back if we came from summary or planner
   const handleBack = () => {
-    if (location.state?.from === 'summary') {
+    const from = location.state?.from
+    if (from === 'summary' || from === 'planner') {
       navigate(-1)
     } else {
       navigate(`/courses/${courseId}`)
@@ -825,7 +838,9 @@ export default function TopicReader() {
                 <span className="material-symbols-outlined text-sm">check_circle</span>Mark Page as Read
               </button>
               <button onClick={handleBack} className="w-full px-4 py-2.5 border border-outline text-on-surface-variant rounded-xl font-button text-sm hover:bg-surface-container transition-colors text-center block">
-                {location.state?.from === 'summary' ? 'Back to Summary' : 'Back to Course'}
+                {location.state?.from === 'summary' ? 'Back to Summary'
+                  : location.state?.from === 'planner' ? 'Back to Planner'
+                  : 'Back to Course'}
               </button>
             </div>
           </aside>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import api from '../services/api'
@@ -108,11 +108,15 @@ export default function TopicReader() {
   const { data: topics } = useTopics(courseId!)
   const topic = topics?.find((t: any) => t.id === Number(topicId))
 
-  const selectedPages = topic?.selectedPages?.length > 0
-    ? [...topic.selectedPages].sort((a: number, b: number) => a - b)
-    : null
+  // Memoize for stable reference — see web TopicReader for rationale.
+  const selectedPages = useMemo<number[] | null>(() => (
+    topic?.selectedPages?.length > 0
+      ? [...topic.selectedPages].sort((a: number, b: number) => a - b)
+      : null
+  ), [topic?.selectedPages])
 
   const storageKey = `topic-reader-position-${topicId}`
+  const hasRestoredRef = useRef(false)
 
   const [currentIndex, setCurrentIndex] = useState(() =>
     resolveTargetIndex(0, selectedPages, searchParams, storageKey)
@@ -251,14 +255,18 @@ export default function TopicReader() {
       })
   }, [topic, topicId])
 
-  // ─── Position restore (safety net for param changes) ───
+  // ─── Position restore: run only once per topic load, not on every render ───
   useEffect(() => {
-    if (totalPages > 0) {
+    if (totalPages > 0 && !hasRestoredRef.current) {
+      hasRestoredRef.current = true
       const maxPage = selectedPages ? selectedPages.length : totalPages
       const idx = resolveTargetIndex(maxPage, selectedPages, searchParams, storageKey)
       setCurrentIndex((prev) => prev !== idx ? idx : prev)
     }
   }, [totalPages, selectedPages, storageKey, searchParams])
+
+  // Reset the restore guard if the user navigates to a different topic
+  useEffect(() => { hasRestoredRef.current = false }, [topicId])
 
   // ─── Navigation ───
   const handlePrevPage = () => setCurrentIndex((i) => {
@@ -275,7 +283,8 @@ export default function TopicReader() {
   })
 
   const handleBack = () => {
-    if ((location.state as any)?.from === 'summary') {
+    const from = (location.state as any)?.from
+    if (from === 'summary' || from === 'planner') {
       navigate(-1)
     } else {
       navigate(`/courses/${courseId}`)
@@ -531,7 +540,9 @@ export default function TopicReader() {
                 <span className="material-symbols-outlined text-sm">check_circle</span>Mark Page as Read
               </button>
               <button onClick={handleBack} className="w-full px-4 py-2.5 border border-outline text-on-surface-variant rounded-xl font-button text-sm hover:bg-surface-container transition-colors text-center">
-                {(location.state as any)?.from === 'summary' ? 'Back to Summary' : 'Back to Course'}
+                {(location.state as any)?.from === 'summary' ? 'Back to Summary'
+                  : (location.state as any)?.from === 'planner' ? 'Back to Planner'
+                  : 'Back to Course'}
               </button>
             </div>
           </aside>

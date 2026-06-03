@@ -39,6 +39,18 @@ export function initDb() {
   if (!goalColNames.includes('target_pages')) {
     db.exec("ALTER TABLE goals ADD COLUMN target_pages TEXT DEFAULT '[]'")
   }
+  if (!goalColNames.includes('baseline_pages_read')) {
+    db.exec("ALTER TABLE goals ADD COLUMN baseline_pages_read INTEGER DEFAULT 0")
+    // Backfill: pre-existing topic-linked goals should baseline against the
+    // topic's current pages_read so they don't all show as "Complete" the
+    // instant the new derived-progress logic kicks in.
+    db.exec(`
+      UPDATE goals SET baseline_pages_read = COALESCE(
+        (SELECT pages_read FROM topics WHERE topics.id = goals.topic_id), 0
+      )
+      WHERE topic_id IS NOT NULL
+    `)
+  }
 
   // Migrate existing goals that have a date but no occurrences yet
   db.exec(`

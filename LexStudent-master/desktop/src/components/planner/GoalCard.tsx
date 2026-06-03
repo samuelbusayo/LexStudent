@@ -18,19 +18,23 @@ export default function GoalCard({ goal, occurrence }: GoalCardProps) {
   let targetPagesRead = 0
 
   if (hasTopicLink && hasTargetPages) {
-    const selPages: number[] = goal.selectedPages?.length > 0 ? goal.selectedPages : null
+    const selPages: number[] | null = goal.selectedPages?.length > 0 ? goal.selectedPages : null
     const pagesRead: number = goal.pagesRead || 0
-    let readSet: Set<number>
+    const baseline: number = goal.baselinePagesRead || 0
+    // Only count pages read AFTER the goal was created
+    let readSinceSet: Set<number>
     if (selPages) {
-      readSet = new Set(selPages.slice(0, pagesRead))
+      readSinceSet = new Set(selPages.slice(baseline, pagesRead))
     } else {
-      readSet = new Set(Array.from({ length: pagesRead }, (_, i) => i + 1))
+      readSinceSet = new Set(
+        Array.from({ length: Math.max(0, pagesRead - baseline) }, (_, i) => baseline + i + 1)
+      )
     }
-    targetPagesRead = (goal.targetPages as number[]).filter((p: number) => readSet.has(p)).length
+    targetPagesRead = (goal.targetPages as number[]).filter((p: number) => readSinceSet.has(p)).length
     progress = goal.targetPages.length > 0
       ? Math.round((targetPagesRead / goal.targetPages.length) * 100)
       : 0
-    firstUnread = (goal.targetPages as number[]).find((p: number) => !readSet.has(p)) || goal.targetPages[0] || 1
+    firstUnread = (goal.targetPages as number[]).find((p: number) => !readSinceSet.has(p)) || goal.targetPages[0] || 1
   } else {
     progress = occurrence?.progress ?? goal.progress ?? 0
   }
@@ -40,7 +44,10 @@ export default function GoalCard({ goal, occurrence }: GoalCardProps) {
 
   const handleClick = () => {
     if (!hasTopicLink) return
-    navigate(`/courses/${goal.courseId}/topics/${goal.topicId}/read?page=${firstUnread}`)
+    navigate(
+      `/courses/${goal.courseId}/topics/${goal.topicId}/read?page=${firstUnread}`,
+      { state: { from: 'planner' } }
+    )
   }
 
   const handleIncrement = (e: React.MouseEvent) => {
