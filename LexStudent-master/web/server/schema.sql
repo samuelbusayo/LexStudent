@@ -208,3 +208,14 @@ CREATE TABLE IF NOT EXISTS activity_log (
   amount INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS goal_occurrences (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal_id INTEGER NOT NULL,
+  user_id INTEGER DEFAULT 1,
+  date TEXT NOT NULL,
+  status TEXT DEFAULT 'not_started',
+  progress INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+);

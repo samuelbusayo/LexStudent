@@ -1,31 +1,70 @@
 import React from 'react';
-import { useUpdateGoal } from '../../hooks/useGoals';
+import { useNavigate } from 'react-router-dom';
+import { useUpdateOccurrence } from '../../hooks/useGoals';
 
-export default function GoalCard({ goal }) {
-  const updateGoal = useUpdateGoal();
-  const progress = goal.progress ?? 0;
+export default function GoalCard({ goal, occurrence }) {
+  const navigate = useNavigate();
+  const updateOccurrence = useUpdateOccurrence();
+  const hasTopicLink = !!goal.topicId && !!goal.courseId;
+  const hasTargetPages = goal.targetPages?.length > 0;
+
+  // Compute derived progress for topic-linked goals with target pages
+  let progress = 0;
+  let firstUnread = 1;
+  let targetPagesRead = 0;
+
+  if (hasTopicLink && hasTargetPages) {
+    const selPages = goal.selectedPages?.length > 0 ? goal.selectedPages : null;
+    const pagesRead = goal.pagesRead || 0;
+    let readSet;
+    if (selPages) {
+      readSet = new Set(selPages.slice(0, pagesRead));
+    } else {
+      readSet = new Set(Array.from({ length: pagesRead }, (_, i) => i + 1));
+    }
+    targetPagesRead = goal.targetPages.filter(p => readSet.has(p)).length;
+    progress = goal.targetPages.length > 0
+      ? Math.round((targetPagesRead / goal.targetPages.length) * 100)
+      : 0;
+    firstUnread = goal.targetPages.find(p => !readSet.has(p)) || goal.targetPages[0] || 1;
+  } else {
+    progress = occurrence?.progress ?? goal.progress ?? 0;
+  }
+
+  const isComplete = (occurrence?.status === 'completed') || progress >= 100;
   const notStarted = progress === 0;
-  const isComplete = goal.status === 'completed' || progress >= 100;
-  const hasTopicLink = !!goal.topicId;
 
-  const handleIncrement = () => {
-    if (isComplete) return;
-    const newProgress = Math.min(100, progress + 20);
-    updateGoal.mutate({
-      id: goal.id,
+  const handleClick = () => {
+    if (!hasTopicLink) return;
+    navigate(`/courses/${goal.courseId}/topics/${goal.topicId}/read?page=${firstUnread}`);
+  };
+
+  const handleIncrement = (e) => {
+    e.stopPropagation();
+    if (isComplete || !occurrence) return;
+    const newProgress = Math.min(100, (occurrence.progress || 0) + 20);
+    updateOccurrence.mutate({
+      id: occurrence.id,
       progress: newProgress,
       status: newProgress >= 100 ? 'completed' : 'in_progress',
     });
   };
 
-  const handleMarkDone = () => {
-    updateGoal.mutate({ id: goal.id, progress: 100, status: 'completed' });
+  const handleMarkDone = (e) => {
+    e.stopPropagation();
+    if (!occurrence) return;
+    updateOccurrence.mutate({ id: occurrence.id, progress: 100, status: 'completed' });
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-[#E0E0D0] shadow-sm flex flex-col gap-4">
+    <div
+      onClick={hasTopicLink ? handleClick : undefined}
+      className={`bg-white p-6 rounded-xl border border-[#E0E0D0] shadow-sm flex flex-col gap-4 ${
+        hasTopicLink ? 'cursor-pointer hover:border-secondary/40 hover:shadow-md transition-all' : ''
+      }`}
+    >
       <div className="flex justify-between items-start">
-        <div>
+        <div className="min-w-0 flex-1">
           <span className="bg-primary-container/5 text-primary-container px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase mb-2 inline-block">
             {goal.subjectTag}
           </span>
@@ -33,12 +72,21 @@ export default function GoalCard({ goal }) {
           {goal.note && (
             <p className="font-body-md text-body-md text-on-surface-variant mt-1">{goal.note}</p>
           )}
+          {hasTopicLink && (
+            <p className="text-xs text-secondary mt-1.5 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">auto_stories</span>
+              <span className="truncate">{goal.topicName}</span>
+              {hasTargetPages && (
+                <span className="flex-shrink-0"> · {targetPagesRead}/{goal.targetPages.length} pages</span>
+              )}
+            </p>
+          )}
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-3">
           <span className={`font-label-caps text-label-caps ${isComplete ? 'text-green-600' : notStarted ? 'text-slate-400' : 'text-secondary'}`}>
-            {isComplete ? 'Complete' : notStarted ? 'Not Started' : `${Math.round(progress)}% Complete`}
+            {isComplete ? 'Complete' : notStarted ? 'Not Started' : `${Math.round(progress)}%`}
           </span>
-          {!hasTopicLink && !isComplete && (
+          {!hasTopicLink && !isComplete && occurrence && (
             <div className="flex gap-1">
               <button
                 onClick={handleIncrement}
@@ -53,6 +101,9 @@ export default function GoalCard({ goal }) {
                 Done
               </button>
             </div>
+          )}
+          {hasTopicLink && !isComplete && (
+            <span className="material-symbols-outlined text-[16px] text-secondary/50">open_in_new</span>
           )}
         </div>
       </div>

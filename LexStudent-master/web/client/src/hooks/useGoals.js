@@ -25,6 +25,15 @@ export function useUpdateGoal() {
   });
 }
 
+export function useUpdateOccurrence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }) =>
+      api.put(`/goals/occurrences/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['goals'] }),
+  });
+}
+
 export function useDeleteGoal() {
   const qc = useQueryClient();
   return useMutation({

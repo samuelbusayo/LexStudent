@@ -15,14 +15,20 @@ export default function Planner() {
   const [showModal, setShowModal] = useState(false)
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10))
 
+  // Dates that have any goal occurrence — for calendar dots
   const goalDates = useMemo(() => {
     if (!goals) return [] as string[]
-    return (goals as any[]).map((g: any) => g.date).filter(Boolean)
+    return (goals as any[]).flatMap((g: any) =>
+      (g.occurrences || []).map((o: any) => o.date)
+    )
   }, [goals])
 
+  // Goals that have an occurrence on the selected date
   const filteredGoals = useMemo(() => {
     if (!goals) return []
-    return (goals as any[]).filter((g: any) => g.date === selectedDate)
+    return (goals as any[]).filter((g: any) =>
+      (g.occurrences || []).some((o: any) => o.date === selectedDate)
+    )
   }, [goals, selectedDate])
 
   const handleCreateGoal = (data: any) => {
@@ -64,9 +70,16 @@ export default function Planner() {
                 <p className="text-on-surface-variant font-body-md">No goals for this day. Click &ldquo;Set New Goal&rdquo; to add one.</p>
               </div>
             )}
-            {filteredGoals.map((goal: any) => (
-              <GoalCard key={goal.id} goal={goal} />
-            ))}
+            {filteredGoals.map((goal: any) => {
+              const occ = (goal.occurrences || []).find((o: any) => o.date === selectedDate)
+              return (
+                <GoalCard
+                  key={`${goal.id}-${occ?.id || 0}`}
+                  goal={goal}
+                  occurrence={occ}
+                />
+              )
+            })}
           </div>
         </div>
 

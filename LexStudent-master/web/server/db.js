@@ -33,6 +33,21 @@ export function initDb() {
     db.exec("ALTER TABLE study_notes ADD COLUMN anchor_text TEXT DEFAULT ''")
   }
 
+  // goals: add target_pages column
+  const goalCols = db.prepare("PRAGMA table_info(goals)").all()
+  const goalColNames = goalCols.map(c => c.name)
+  if (!goalColNames.includes('target_pages')) {
+    db.exec("ALTER TABLE goals ADD COLUMN target_pages TEXT DEFAULT '[]'")
+  }
+
+  // Migrate existing goals that have a date but no occurrences yet
+  db.exec(`
+    INSERT INTO goal_occurrences (goal_id, user_id, date, status, progress)
+    SELECT id, user_id, date, status, progress FROM goals
+    WHERE date != '' AND date IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM goal_occurrences WHERE goal_id = goals.id)
+  `)
+
   return db
 }
 
