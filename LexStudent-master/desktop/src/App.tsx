@@ -24,6 +24,7 @@ import TopicReader from './pages/TopicReader'
 import TopicMaterial from './pages/TopicMaterial'
 import SummaryView from './pages/SummaryView'
 import RevisionSession from './pages/RevisionSession'
+import QuizFlow from './pages/QuizFlow'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +75,7 @@ function AppRoutes() {
         <Route path="/revision" element={<RevisionMode />} />
         <Route path="/revision/summary/:topicId" element={<SummaryView />} />
         <Route path="/revision/session" element={<RevisionSession />} />
+        <Route path="/revision/quiz" element={<QuizFlow />} />
         <Route path="/badges" element={<Badges />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/milestone" element={<Milestone />} />

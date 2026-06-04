@@ -221,3 +221,52 @@ CREATE TABLE IF NOT EXISTS goal_occurrences (
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS quiz_scenarios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  order_index INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL,
+  scenario_id INTEGER,
+  blank_number INTEGER,
+  prompt TEXT,
+  options TEXT NOT NULL,
+  correct_index INTEGER NOT NULL,
+  explanation TEXT,
+  order_index INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
+  FOREIGN KEY (scenario_id) REFERENCES quiz_scenarios(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER DEFAULT 1,
+  topic_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
+  seconds_per_question INTEGER NOT NULL,
+  question_order TEXT NOT NULL,
+  num_questions INTEGER NOT NULL,
+  correct_count INTEGER DEFAULT 0,
+  total_count INTEGER DEFAULT 0,
+  started_at TEXT DEFAULT (datetime('now')),
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS quiz_attempt_answers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  attempt_id INTEGER NOT NULL,
+  question_id INTEGER NOT NULL,
+  selected_index INTEGER,
+  is_correct INTEGER DEFAULT 0,
+  time_taken_seconds INTEGER,
+  FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+  FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
+);

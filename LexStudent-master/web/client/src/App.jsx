@@ -11,6 +11,7 @@ import TopicReader from './pages/TopicReader'
 import TopicMaterial from './pages/TopicMaterial'
 import RevisionMode from './pages/RevisionMode'
 import RevisionSession from './pages/RevisionSession'
+import QuizFlow from './pages/QuizFlow'
 import SummaryView from './pages/SummaryView'
 import Badges from './pages/Badges'
 import Milestone from './pages/Milestone'
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="/revision" element={<RevisionMode />} />
         <Route path="/revision/summary/:topicId" element={<SummaryView />} />
         <Route path="/revision/session" element={<RevisionSession />} />
+        <Route path="/revision/quiz" element={<QuizFlow />} />
         <Route path="/badges" element={<Badges />} />
         <Route path="/milestone" element={<Milestone />} />
       </Route>

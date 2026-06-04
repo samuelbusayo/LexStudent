@@ -71,12 +71,11 @@ export default function RevisionMode() {
         </div>
         <h2 className="font-h1 text-white relative z-10">Ready to Review?</h2>
         <p className="text-white/80 font-body-lg max-w-md mx-auto relative z-10">
-          You have {gapCount} topic{gapCount !== 1 ? 's' : ''} identified for review.
+          Test your knowledge on about {gapCount} topic{gapCount !== 1 ? 's' : ''} across your courses.
         </p>
         <button
-          onClick={() => navigate('/revision/session')}
-          disabled={gapCount === 0}
-          className="bg-secondary text-primary font-button px-stack-lg py-4 rounded-full relative z-10 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => navigate('/revision/quiz')}
+          className="bg-secondary text-primary font-button px-stack-lg py-4 rounded-full relative z-10 hover:brightness-110 active:scale-95 transition-all"
         >
           Start Revision Session
         </button>

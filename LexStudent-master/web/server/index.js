@@ -3,7 +3,8 @@ import express from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { initDb } from "./db.js"
-import { seedDatabase } from "./seed.js"
+import { seedDatabase, syncCurriculumTopics } from "./seed.js"
+import { seedQuizData } from "./quiz_seed.js"
 import coursesRouter from "./routes/courses.js"
 import goalsRouter from "./routes/goals.js"
 import progressRouter from "./routes/progress.js"
@@ -14,6 +15,7 @@ import remindersRouter from "./routes/reminders.js"
 import summariesRouter from "./routes/summaries.js"
 import materialsRouter from "./routes/materials.js"
 import studyNotesRouter from "./routes/studyNotes.js"
+import quizRouter from "./routes/quiz.js"
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -25,6 +27,8 @@ app.use(morgan('dev'))
 // Initialize database
 const db = initDb()
 seedDatabase(db)
+syncCurriculumTopics(db)
+seedQuizData(db)
 app.locals.db = db
 
 // Routes
@@ -38,6 +42,7 @@ app.use("/api/reminders", remindersRouter)
 app.use("/api/summaries", summariesRouter)
 app.use("/api/materials", materialsRouter)
 app.use("/api/study-notes", studyNotesRouter)
+app.use("/api/quiz", quizRouter)
 
 // Health check
 app.get("/api/health", (req, res) => {
