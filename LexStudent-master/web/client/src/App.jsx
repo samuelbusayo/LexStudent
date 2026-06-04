@@ -12,7 +12,6 @@ import TopicMaterial from './pages/TopicMaterial'
 import RevisionMode from './pages/RevisionMode'
 import RevisionSession from './pages/RevisionSession'
 import SummaryView from './pages/SummaryView'
-import CasesLibrary from './pages/CasesLibrary'
 import Badges from './pages/Badges'
 import Milestone from './pages/Milestone'
 import Login from './pages/Login'
@@ -69,7 +68,6 @@ function AppRoutes() {
         <Route path="/revision" element={<RevisionMode />} />
         <Route path="/revision/summary/:topicId" element={<SummaryView />} />
         <Route path="/revision/session" element={<RevisionSession />} />
-        <Route path="/cases" element={<CasesLibrary />} />
         <Route path="/badges" element={<Badges />} />
         <Route path="/milestone" element={<Milestone />} />
       </Route>

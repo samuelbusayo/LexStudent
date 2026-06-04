@@ -17,6 +17,11 @@ export default function CourseDetail() {
     return <div className="font-body-md text-body-md text-on-surface-variant">Loading course...</div>;
   }
 
+  // Use server-provided pages-weighted progress (matches dashboard cards)
+  const totalTopicCount = (topics || []).length;
+  const courseProgress = course?.progressPercent ?? 0;
+  const completedCount = course?.completedTopics ?? 0;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-stack-md">
@@ -33,44 +38,23 @@ export default function CourseDetail() {
         </Link>
       </div>
 
-      {(() => {
-        const topicsArr = topics || [];
-        const totalTopicCount = topicsArr.length;
-        const completedCount = topicsArr.filter(t => {
-          const selected = t.selectedPages || [];
-          const total = selected.length;
-          return t.pagesRead >= total && total > 0;
-        }).length;
-        let courseProgress = 0;
-        if (totalTopicCount > 0) {
-          const sum = topicsArr.reduce((acc, t) => {
-            const selected = t.selectedPages || [];
-            const total = selected.length;
-            if (total <= 0) return acc;
-            return acc + Math.min(1, (t.pagesRead || 0) / total);
-          }, 0);
-          courseProgress = Math.round((sum / totalTopicCount) * 100);
-        }
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-stack-lg">
-            <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
-              <p className="font-label-caps text-label-caps text-on-surface-variant">Total Topics</p>
-              <p className="font-h2 text-h2 text-primary-container mt-1">{totalTopicCount}</p>
-            </div>
-            <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
-              <p className="font-label-caps text-label-caps text-on-surface-variant">Progress</p>
-              <p className="font-h2 text-h2 text-primary-container mt-1">{courseProgress}%</p>
-              <p className="text-xs text-on-surface-variant mt-1">{completedCount}/{totalTopicCount} topics completed</p>
-            </div>
-            <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
-              <p className="font-label-caps text-label-caps text-on-surface-variant">Materials</p>
-              <p className="font-h2 text-h2 text-primary-container mt-1">
-                {topicsArr.filter((t) => t.hasMaterials).length} Files
-              </p>
-            </div>
-          </div>
-        );
-      })()}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-stack-lg">
+        <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
+          <p className="font-label-caps text-label-caps text-on-surface-variant">Total Topics</p>
+          <p className="font-h2 text-h2 text-primary-container mt-1">{totalTopicCount}</p>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
+          <p className="font-label-caps text-label-caps text-on-surface-variant">Progress</p>
+          <p className="font-h2 text-h2 text-primary-container mt-1">{courseProgress}%</p>
+          <p className="text-xs text-on-surface-variant mt-1">{completedCount}/{totalTopicCount} topics completed</p>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30">
+          <p className="font-label-caps text-label-caps text-on-surface-variant">Materials</p>
+          <p className="font-h2 text-h2 text-primary-container mt-1">
+            {(topics || []).filter((t) => t.hasMaterials).length} Files
+          </p>
+        </div>
+      </div>
 
       <div className="flex items-center gap-gutter mb-stack-md">
         <div className="relative flex-1 max-w-md">

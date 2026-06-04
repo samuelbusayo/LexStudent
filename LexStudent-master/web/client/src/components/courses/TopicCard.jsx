@@ -18,9 +18,13 @@ export default function TopicCard({ topic, courseId }) {
     setConfirmDelete(false);
   };
 
+  // Use server-provided studied_pages / pages_remaining when available,
+  // fall back to client-side selectedPages.length for back-compat
   const selectedPages = topic.selectedPages || [];
-  const totalPages = selectedPages.length;
-  const pagesRead = topic.pagesRead ?? 0;
+  const studiedPages = topic.studiedPages || selectedPages.length;
+  const pagesRead = Math.min(topic.pagesRead ?? 0, studiedPages);
+  const pagesRemaining = topic.pagesRemaining ?? Math.max(0, studiedPages - pagesRead);
+  const isComplete = pagesRead >= studiedPages && studiedPages > 0;
 
   return (
     <div className="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/30 hover:shadow-md transition-shadow relative group">
@@ -29,7 +33,7 @@ export default function TopicCard({ topic, courseId }) {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-h3 text-h3 text-primary-container">{topic.name}</h4>
-              {pagesRead >= totalPages && totalPages > 0 && (
+              {isComplete && (
                 <span className="text-xs text-secondary font-bold">COMPLETED</span>
               )}
             </div>
@@ -58,16 +62,18 @@ export default function TopicCard({ topic, courseId }) {
         </div>
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs text-on-surface-variant">
-          <span className="font-medium">Progress</span>
+          <span className="font-medium">
+            {isComplete ? 'Complete' : pagesRemaining > 0 ? `${pagesRemaining} page${pagesRemaining !== 1 ? 's' : ''} left` : 'Progress'}
+          </span>
           <span className="font-bold">
-            {pagesRead}/{totalPages} Pages
+            {pagesRead}/{studiedPages} Pages
           </span>
         </div>
         <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden">
           <div
             className="h-full bg-secondary transition-all duration-700"
             style={{
-              width: `${totalPages > 0 ? Math.min(100, (pagesRead / totalPages) * 100) : 0}%`,
+              width: `${studiedPages > 0 ? Math.min(100, (pagesRead / studiedPages) * 100) : 0}%`,
             }}
           ></div>
         </div>

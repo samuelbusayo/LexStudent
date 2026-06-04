@@ -1,27 +1,50 @@
 import { Router } from "express";
 import fs from "fs";
 import { getDb } from "../db.js";
+import { getStudiedPages } from "../helpers/studiedPages.js";
 
 const router = Router();
 
 // Helper: compute progress stats for a single course from its topics
 function computeCourseProgress(db, courseId) {
-  const topics = db.prepare("SELECT total_pages, pages_read FROM topics WHERE course_id = ?").all(courseId);
+  const topics = db.prepare(
+    "SELECT selected_pages, total_pages, pages_read FROM topics WHERE course_id = ?"
+  ).all(courseId);
+
   const totalTopics = topics.length;
-  const completedTopics = topics.filter(t => t.pages_read >= t.total_pages && t.total_pages > 0).length;
+  let totalPagesSum = 0;
+  let pagesReadSum = 0;
+  let completedTopics = 0;
 
-  const totalPagesSum = topics.reduce((acc, t) => acc + (t.total_pages || 0), 0);
-  const pagesReadSum = topics.reduce((acc, t) => acc + Math.min(t.pages_read || 0, t.total_pages || 0), 0);
+  for (const t of topics) {
+    const studied = getStudiedPages(t);
+    totalPagesSum += studied;
+    pagesReadSum += Math.min(t.pages_read || 0, studied);
+    if ((t.pages_read || 0) >= studied && studied > 0) completedTopics++;
+  }
+
   const progressPercent = totalPagesSum > 0 ? Math.round((pagesReadSum / totalPagesSum) * 100) : 0;
-
   return { totalTopics, completedTopics, progressPercent };
+}
+
+/** Enrich a topic row with parsed arrays + studied_pages + pages_remaining */
+function enrichTopic(t) {
+  const selectedPages = JSON.parse(t.selected_pages || '[]');
+  const studied = selectedPages.length > 0 ? selectedPages.length : (t.total_pages || 0);
+  const pagesRead = Math.min(t.pages_read || 0, studied);
+  return {
+    ...t,
+    selectedPages,
+    materials: JSON.parse(t.materials || '[]'),
+    studied_pages: studied,
+    pages_remaining: Math.max(0, studied - pagesRead),
+  };
 }
 
 router.get("/", (req, res) => {
   const db = getDb();
   const courses = db.prepare("SELECT * FROM courses ORDER BY id").all();
 
-  // Enrich each course with dynamically computed progress
   const enriched = courses.map(course => {
     const { totalTopics, completedTopics, progressPercent } = computeCourseProgress(db, course.id);
     return {
@@ -40,7 +63,6 @@ router.get("/:id", (req, res) => {
   const course = db.prepare("SELECT * FROM courses WHERE id = ?").get(req.params.id);
   if (!course) return res.status(404).json({ error: "Course not found" });
 
-  // Enrich with dynamic progress
   const { totalTopics, completedTopics, progressPercent } = computeCourseProgress(db, course.id);
   res.json({
     ...course,
@@ -53,12 +75,7 @@ router.get("/:id", (req, res) => {
 router.get("/:courseId/topics", (req, res) => {
   const db = getDb();
   const topics = db.prepare("SELECT * FROM topics WHERE course_id = ? ORDER BY id").all(req.params.courseId);
-  const parsed = topics.map(t => ({
-    ...t,
-    selectedPages: JSON.parse(t.selected_pages || '[]'),
-    materials: JSON.parse(t.materials || '[]'),
-  }))
-  res.json(parsed);
+  res.json(topics.map(enrichTopic));
 });
 
 router.put("/:courseId/topics/:topicId/progress", (req, res) => {
@@ -93,39 +110,43 @@ router.post("/:courseId/topics", (req, res) => {
   const { name, hasMaterials, materialFile, materialType, selectedPages, totalDocumentPages } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: "Topic name is required" });
 
+  // total_pages = studied page count (selectedPages.length), falling back to totalDocumentPages
+  const selArr = Array.isArray(selectedPages) ? selectedPages : [];
+  const totalPages = selArr.length > 0 ? selArr.length : (totalDocumentPages || 0);
+
   const result = db.prepare(
     `INSERT INTO topics (course_id, name, subtitle, total_pages, has_materials, material_file, material_type, selected_pages, total_document_pages)
      VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)`
   ).run(
-    req.params.courseId, name.trim(), totalDocumentPages || 0,
+    req.params.courseId, name.trim(), totalPages,
     hasMaterials ? 1 : 0, materialFile || null, materialType || null,
-    JSON.stringify(selectedPages || []), totalDocumentPages || 0
+    JSON.stringify(selArr), totalDocumentPages || 0
   );
 
-  // No longer incrementing static total_topics — it's computed dynamically now
-
   const newTopic = db.prepare("SELECT * FROM topics WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json({
-    ...newTopic,
-    selectedPages: JSON.parse(newTopic.selected_pages || '[]'),
-    materials: JSON.parse(newTopic.materials || '[]'),
-  });
+  res.status(201).json(enrichTopic(newTopic));
 });
 
 router.put("/:courseId/topics/:topicId/materials", (req, res) => {
   const db = getDb();
   const { hasMaterials, materialFile, materialType, selectedPages, totalDocumentPages } = req.body;
+
+  // total_pages = studied page count
+  const selArr = Array.isArray(selectedPages) ? selectedPages : [];
+  const totalPages = selArr.length > 0 ? selArr.length : (totalDocumentPages || 0);
+
   const result = db.prepare(
-    `UPDATE topics SET has_materials = ?, material_file = ?, material_type = ?, selected_pages = ?, total_document_pages = ?, updated_at = datetime('now')
+    `UPDATE topics SET has_materials = ?, material_file = ?, material_type = ?, selected_pages = ?,
+     total_document_pages = ?, total_pages = ?, updated_at = datetime('now')
      WHERE id = ? AND course_id = ?`
   ).run(
     hasMaterials ? 1 : 1, materialFile || null, materialType || null,
-    JSON.stringify(selectedPages || []), totalDocumentPages || 0,
+    JSON.stringify(selArr), totalDocumentPages || 0, totalPages,
     req.params.topicId, req.params.courseId
   );
   if (result.changes === 0) return res.status(404).json({ error: "Topic not found" });
   const topic = db.prepare("SELECT * FROM topics WHERE id = ?").get(req.params.topicId);
-  res.json({ ...topic, selectedPages: JSON.parse(topic.selected_pages || '[]') });
+  res.json(enrichTopic(topic));
 });
 
 router.delete("/:courseId/topics/:topicId", (req, res) => {
@@ -146,7 +167,7 @@ router.delete("/:courseId/topics/:topicId/materials", (req, res) => {
   db.prepare("DELETE FROM materials WHERE topic_id = ?").run(req.params.topicId);
 
   const result = db.prepare(
-    `UPDATE topics SET has_materials = 0, material_file = NULL, material_type = NULL, selected_pages = '[]', total_document_pages = 0, updated_at = datetime('now')
+    `UPDATE topics SET has_materials = 0, material_file = NULL, material_type = NULL, selected_pages = '[]', total_document_pages = 0, total_pages = 0, updated_at = datetime('now')
      WHERE id = ? AND course_id = ?`
   ).run(req.params.topicId, req.params.courseId);
   if (result.changes === 0) return res.status(404).json({ error: "Topic not found" });

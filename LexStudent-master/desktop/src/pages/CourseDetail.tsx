@@ -30,7 +30,10 @@ export default function CourseDetail() {
       id: t.id?.toString() || `mod_${i}`,
       name: t.name || `Module ${i + 1}`,
       orderIndex: i,
-      progress: t.selectedPages?.length > 0 ? Math.round(((t.pagesRead || 0) / t.selectedPages.length) * 100) : 0,
+      progress: (() => {
+        const studied = t.studiedPages || (t.selectedPages?.length > 0 ? t.selectedPages.length : (t.totalPages || 0));
+        return studied > 0 ? Math.round((Math.min(t.pagesRead || 0, studied) / studied) * 100) : 0;
+      })(),
       locked: false,
       notes: [],
     }))

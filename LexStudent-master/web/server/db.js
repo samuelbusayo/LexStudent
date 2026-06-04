@@ -52,6 +52,14 @@ export function initDb() {
     `)
   }
 
+  // Fix total_pages for existing topics where selected_pages is non-empty:
+  // total_pages should reflect studied page count, not full document length
+  db.exec(`
+    UPDATE topics SET total_pages = json_array_length(selected_pages)
+    WHERE selected_pages IS NOT NULL AND selected_pages != '[]' AND selected_pages != ''
+    AND total_pages != json_array_length(selected_pages)
+  `)
+
   // Migrate existing goals that have a date but no occurrences yet
   db.exec(`
     INSERT INTO goal_occurrences (goal_id, user_id, date, status, progress)
