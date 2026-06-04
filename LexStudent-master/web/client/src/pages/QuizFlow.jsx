@@ -169,6 +169,7 @@ export default function QuizFlow() {
       });
 
       if (currentQIndex < questionIds.length - 1) {
+        setTimeLeft(secondsPerQ);
         setCurrentQIndex(prev => prev + 1);
         setSelectedOption(null);
       } else {
@@ -217,6 +218,7 @@ export default function QuizFlow() {
       setQuestionIds(data.questionIds);
       setCurrentQIndex(0);
       setSelectedOption(null);
+      setTimeLeft(secondsPerQ);
       setStep(STEP_QUIZ);
     } catch (err) {
       console.error('Failed to start quiz:', err);

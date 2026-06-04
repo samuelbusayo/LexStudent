@@ -205,6 +205,7 @@ export default function QuizFlow() {
     try {
       await submitAnswer.mutateAsync({ attemptId, questionId: currentQuestionId, selectedIndex: optionIdx ?? null, timeTakenSeconds: secondsPerQ - timeLeft })
       if (currentQIndex < questionIds.length - 1) {
+        setTimeLeft(secondsPerQ)
         setCurrentQIndex((prev) => prev + 1)
         setSelectedOption(null)
       } else {
@@ -244,6 +245,7 @@ export default function QuizFlow() {
       setQuestionIds((data as any).questionIds)
       setCurrentQIndex(0)
       setSelectedOption(null)
+      setTimeLeft(secondsPerQ)
       setStep(STEP_QUIZ)
     } catch (err) { console.error('Failed to start quiz:', err) }
   }
