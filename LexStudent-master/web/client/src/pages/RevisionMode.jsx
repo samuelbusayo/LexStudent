@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useStreak, useKnowledgeGaps } from '../hooks/useProgress';
@@ -8,16 +8,21 @@ import KnowledgeGapCard from '../components/revision/KnowledgeGapCard';
 import Heatmap from '../components/revision/Heatmap';
 import SummaryCard from '../components/revision/SummaryCard';
 
+const COLLAPSED_LIMIT = 4;
+
 export default function RevisionMode() {
   const { data: streak } = useStreak();
   const { data: gaps } = useKnowledgeGaps();
   const navigate = useNavigate();
+  const [showAllGaps, setShowAllGaps] = useState(false);
   const { data: summaries } = useQuery({
     queryKey: ['summaryFeed'],
     queryFn: () => api.get('/study-notes').then(r => r.data),
   });
 
   const gapCount = (gaps || []).length;
+  const visibleGaps = showAllGaps ? (gaps || []) : (gaps || []).slice(0, COLLAPSED_LIMIT);
+  const hasMore = gapCount > COLLAPSED_LIMIT;
 
   return (
     <main className="px-container-padding py-6 max-w-7xl mx-auto space-y-stack-lg">
@@ -32,7 +37,7 @@ export default function RevisionMode() {
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-stack-sm">
-            {(gaps || []).map((gap) => (
+            {visibleGaps.map((gap) => (
               <KnowledgeGapCard key={gap.id} gap={gap} />
             ))}
             {gapCount === 0 && (
@@ -41,6 +46,17 @@ export default function RevisionMode() {
               </p>
             )}
           </div>
+          {hasMore && (
+            <button
+              onClick={() => setShowAllGaps(!showAllGaps)}
+              className="w-full flex items-center justify-center gap-1 py-2 text-secondary font-button text-sm hover:underline transition-all"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {showAllGaps ? 'expand_less' : 'expand_more'}
+              </span>
+              {showAllGaps ? 'Show Less' : `View All ${gapCount} Topics`}
+            </button>
+          )}
         </div>
 
         <Heatmap />
