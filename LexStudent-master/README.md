@@ -163,21 +163,34 @@ LexScholar/
 │   │   ├── rag.py              # RAG ingestion & retrieval
 │   │   └── requirements.txt
 │   └── package.json
+├── mobile/                     # Android app (Capacitor)
+│   ├── src/                    # React frontend (mobile-optimized)
+│   │   ├── components/         # Mobile UI components
+│   │   ├── context/            # Auth context (offline)
+│   │   ├── hooks/              # React Query hooks (local SQLite)
+│   │   ├── pages/              # Mobile-redesigned pages
+│   │   └── services/
+│   │       ├── db.js           # Local SQLite queries + mock fallback
+│   │       ├── schema.js       # Database schema
+│   │       └── seedData.js     # NLS course curriculum seed data
+│   ├── android/                # Android native project
+│   ├── capacitor.config.json
+│   └── package.json
 ├── package.json                # Monorepo root scripts
 └── README.md
 ```
 
 ## Tech Stack
 
-| Layer | Web | Desktop |
-|-------|-----|---------|
-| Frontend | React 18, Vite 5, TailwindCSS 3, React Router 6, TanStack React Query | Same + TypeScript |
-| Backend | Node.js, Express 4, better-sqlite3 | Tauri v2 (Rust), SQLite via sqlx |
-| Auth | JWT (bcryptjs + jsonwebtoken) | JWT (shared with web server) |
-| File Handling | Multer, pdfjs-dist, pptx-renderer, mammoth | PyMuPDF, native file system |
-| AI / ML | -- | faster-whisper, llama-cpp-python, sentence-transformers, LanceDB |
-| Audio | -- | cpal (Rust), Silero VAD |
-| Desktop Shell | -- | Tauri v2, Rust |
+| Layer | Web | Desktop | Mobile (Android) |
+|-------|-----|---------|------------------|
+| Frontend | React 18, Vite 5, TailwindCSS 3, React Router 6, TanStack React Query | Same + TypeScript | React 19, Vite 8, TailwindCSS 4 |
+| Backend | Node.js, Express 4, better-sqlite3 | Tauri v2 (Rust), SQLite via sqlx | Fully offline — local SQLite via Capacitor |
+| Auth | JWT (bcryptjs + jsonwebtoken) | JWT (shared with web server) | Local user (no server needed) |
+| File Handling | Multer, pdfjs-dist, pptx-renderer, mammoth | PyMuPDF, native file system | pdfjs-dist, pptx-renderer, mammoth |
+| AI / ML | -- | faster-whisper, llama-cpp-python, sentence-transformers, LanceDB | -- |
+| Audio | -- | cpal (Rust), Silero VAD | -- |
+| Native Shell | -- | Tauri v2, Rust | Capacitor 8 (Android SDK 36) |
 
 ## Getting Started
 
@@ -188,6 +201,9 @@ LexScholar/
 - For the desktop app:
   - **Rust** toolchain ([rustup.rs](https://rustup.rs))
   - **Python** 3.10+ (for the AI sidecar)
+- For the Android app:
+  - **Java JDK** 17+ (for Gradle builds)
+  - **Android Studio** with SDK 36+ (or just the Android SDK command-line tools)
 
 ### 1. Clone the repo
 
@@ -248,6 +264,27 @@ On first launch, the desktop app will guide you through:
 3. The embedding model (~130 MB) downloads automatically on first use
 
 All models are stored locally and only need to be downloaded once.
+
+### 6. Run the Android app
+
+```bash
+# Install dependencies
+npm run mobile:install
+
+# Build the web bundle and sync to Android
+npm run mobile:build
+npm run mobile:sync
+
+# Open in Android Studio to run on emulator/device
+npm run mobile:open
+```
+
+The Android app runs **fully offline** — it uses a local SQLite database on the device and does not require a backend server. On first launch, it auto-seeds with the five NLS core subjects and their curriculum topics.
+
+For development, you can also preview in the browser:
+```bash
+npm run mobile:dev   # Vite dev server on http://localhost:5173
+```
 
 ## Desktop AI Architecture
 
@@ -340,7 +377,11 @@ These endpoints are used by the Tauri backend to communicate with the Python AI 
 | `npm run web:server` | Start only the Express API server |
 | `npm run desktop:dev` | Launch Tauri desktop app in dev mode |
 | `npm run desktop:build` | Build native desktop installer |
-| `npm run install:all` | Install deps for web and desktop |
+| `npm run mobile:dev` | Start mobile app in browser for development |
+| `npm run mobile:build` | Build mobile web bundle |
+| `npm run mobile:sync` | Sync built assets to Android project |
+| `npm run mobile:open` | Open Android project in Android Studio |
+| `npm run install:all` | Install deps for web, desktop, and mobile |
 
 ## License
 

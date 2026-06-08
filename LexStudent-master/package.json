@@ -12,6 +12,11 @@
     "desktop:install": "cd desktop && npm install",
     "desktop:dev": "cd desktop && npm run tauri dev",
     "desktop:build": "cd desktop && npm run tauri build",
-    "install:all": "npm run web:install && npm run desktop:install"
+    "mobile:install": "cd mobile && npm install",
+    "mobile:dev": "cd mobile && npm run dev",
+    "mobile:build": "cd mobile && npm run build",
+    "mobile:sync": "cd mobile && npx cap sync android",
+    "mobile:open": "cd mobile && npx cap open android",
+    "install:all": "npm run web:install && npm run desktop:install && npm run mobile:install"
   }
 }
