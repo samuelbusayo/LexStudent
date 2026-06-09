@@ -1,25 +1,26 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCourses } from '../hooks/useCourses'
-import { useOverallProgress } from '../hooks/useProgress'
+import { useOverallProgress, useRecentProgress } from '../hooks/useProgress'
 import { useMilestone, useBadges } from '../hooks/useBadges'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { courses, isLoading: coursesLoading } = useCourses()
   const { data: overallProgress, isLoading: overallLoading } = useOverallProgress()
+  const { data: recentItems, isLoading: recentLoading } = useRecentProgress()
   const { data: milestone, isLoading: milestoneLoading } = useMilestone()
   const { data: badges, isLoading: badgesLoading } = useBadges()
 
-  const isLoading = coursesLoading || overallLoading || milestoneLoading || badgesLoading
+  const isLoading = coursesLoading || overallLoading || milestoneLoading || badgesLoading || recentLoading
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="skeleton h-36 rounded-xl" />
-        <div className="skeleton h-20 rounded-xl" />
-        <div className="grid grid-cols-2 gap-3">
-          <div className="skeleton h-32 rounded-xl" />
-          <div className="skeleton h-32 rounded-xl" />
-        </div>
+      <div className="space-y-5">
+        <div className="skeleton h-48 rounded-2xl" />
+        <div className="skeleton h-6 w-40 rounded" />
+        <div className="skeleton h-20 rounded-2xl" />
+        <div className="skeleton h-20 rounded-2xl" />
+        <div className="skeleton h-20 rounded-2xl" />
       </div>
     )
   }
@@ -27,105 +28,74 @@ export default function Dashboard() {
   const coursesArr = courses || []
   const badgesArr = badges || []
   const earnedBadges = badgesArr.filter(b => b.earned)
+  const overallPct = overallProgress?.overall ?? 0
+
+  // Status dot helper
+  const statusDot = (type) => {
+    if (type === 'READ' || type === 'completed') return 'bg-green-600'
+    if (type === 'PENDING' || type === 'pending') return 'bg-gray-400'
+    return 'border-2 border-gray-400 bg-transparent'
+  }
+  const statusLabel = (type) => {
+    if (type === 'READ' || type === 'completed') return 'READ'
+    if (type === 'PENDING' || type === 'pending') return 'PENDING'
+    return 'UPCOMING'
+  }
 
   return (
-    <div className="space-y-5">
-      {/* Milestone Card */}
-      <section className="bg-primary text-on-primary p-5 rounded-xl shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-2 opacity-10">
-          <span className="material-symbols-outlined text-[80px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-            {milestone ? 'flag' : 'add_circle'}
-          </span>
-        </div>
+    <div className="space-y-6">
+      {/* Milestone Card — cream/beige bg, centered */}
+      <section className="bg-surface-container-lowest rounded-2xl p-8 text-center border border-outline-variant/20 shadow-sm">
         {milestone ? (
           <>
-            <p className="text-[10px] font-bold tracking-widest text-secondary-fixed uppercase">UPCOMING MILESTONE</p>
-            <h3 className="font-serif text-xl font-semibold mt-1">{milestone.title}</h3>
-            <div className="flex items-end justify-between mt-3">
-              <span className="text-4xl font-serif font-bold">{milestone.daysRemaining}</span>
-              <span className="text-sm opacity-80 pb-0.5">
-                {milestone.daysRemaining === 1 ? 'Day Left' : 'Days Left'}
-              </span>
-            </div>
-            <div className="w-full bg-on-primary/10 h-1 rounded-full mt-2 overflow-hidden">
-              <div className="bg-secondary-fixed h-full transition-all duration-1000" style={{ width: `${overallProgress?.overall ?? 0}%` }} />
-            </div>
-            <Link to="/milestone" className="mt-4 w-full py-2.5 bg-secondary-container text-on-secondary-container rounded-lg font-semibold text-sm block text-center active:scale-[0.98] transition-transform">
-              Edit Milestone
-            </Link>
+            <p className="font-label-caps text-label-caps text-secondary tracking-widest">UPCOMING MILESTONE</p>
+            <h2 className="font-h1 text-3xl text-primary mt-2">{milestone.title}</h2>
+            <p className="font-body-md text-on-surface-variant mt-1">Intensive preparation phase active</p>
+            <p className="font-h1 text-7xl text-primary mt-4 leading-none">{milestone.daysRemaining}</p>
+            <p className="font-label-caps text-label-caps text-on-surface-variant mt-2 tracking-widest">DAYS REMAINING</p>
           </>
         ) : (
           <>
-            <p className="text-[10px] font-bold tracking-widest text-secondary-fixed uppercase">NO MILESTONE SET</p>
-            <h3 className="font-serif text-xl font-semibold mt-1">Set a Goal</h3>
-            <p className="text-sm text-on-primary/70 mt-2 leading-relaxed">
+            <p className="font-label-caps text-label-caps text-secondary tracking-widest">NO MILESTONE SET</p>
+            <h2 className="font-h1 text-3xl text-primary mt-2">Set a Goal</h2>
+            <p className="font-body-md text-on-surface-variant mt-2 leading-relaxed">
               Create a milestone to count down to Bar Finals, mock exams, or deadlines.
             </p>
-            <Link to="/milestone" className="mt-4 w-full py-2.5 bg-secondary-container text-on-secondary-container rounded-lg font-semibold text-sm block text-center active:scale-[0.98] transition-transform">
+            <Link to="/milestone" className="mt-6 inline-block px-8 py-3 bg-primary-container text-white rounded-xl font-button text-button active:scale-95 transition-transform">
               Set a New Milestone
             </Link>
           </>
         )}
       </section>
 
-      {/* Overall Progress */}
-      <section className="card p-4 flex items-center gap-4">
-        <div className="relative w-14 h-14 flex-shrink-0">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
-            <circle cx="32" cy="32" fill="none" r="28" stroke="currentColor" strokeWidth="4" className="text-surface-container-high" />
-            <circle cx="32" cy="32" fill="none" r="28" stroke="currentColor" strokeWidth="4"
-              strokeDasharray="175.9"
-              strokeDashoffset={(1 - (overallProgress?.overall ?? 0) / 100) * 175.9}
-              className="text-secondary"
-            />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-sm font-bold">
-            {overallProgress?.overall ?? 0}%
-          </span>
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-sm text-on-surface">Overall Progress</p>
-          <p className="text-xs text-on-surface-variant mt-0.5">
-            {overallProgress?.courses?.reduce((s, c) => s + (c.completedTopics || 0), 0)}/
-            {overallProgress?.courses?.reduce((s, c) => s + (c.totalTopics || 0), 0)} topics completed
-          </p>
-        </div>
-      </section>
-
-      {/* My Courses */}
+      {/* My Courses — single column list */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-serif text-lg font-semibold text-primary">My Courses</h2>
-          <Link to="/planner" className="text-xs font-semibold text-primary flex items-center gap-0.5">
-            View All <span className="material-symbols-outlined text-sm">chevron_right</span>
-          </Link>
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="font-h2 text-2xl text-primary">My Courses</h2>
+          <span className="font-label-caps text-label-caps text-secondary tracking-widest">{overallPct}% TOTAL PROGRESS</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {coursesArr.map((course, index) => {
-            const isLastOdd = coursesArr.length % 2 !== 0 && index === coursesArr.length - 1
+        <div className="space-y-3">
+          {coursesArr.map(course => {
+            const pct = course.progressPercent ?? 0
             return (
               <Link
                 to={`/courses/${course.id}`}
-                key={course.id || index}
-                className={`card p-3.5 active:scale-[0.97] transition-transform ${isLastOdd ? 'col-span-2' : ''}`}
+                key={course.id}
+                className="block bg-surface-container-lowest rounded-2xl px-5 py-4 border border-outline-variant/20 active:shadow-md transition-shadow"
               >
-                <span className="pill bg-primary/10 text-primary text-[9px] mb-2">
-                  {course.type || 'CORE'}
-                </span>
-                <h4 className="font-serif text-sm font-semibold text-primary leading-tight mt-1">
-                  {course.name}
-                </h4>
-                <p className="text-[11px] text-on-surface-variant mt-1">
-                  {course.completedTopics ?? 0}/{course.totalTopics ?? 0} Topics
-                </p>
-                <div className="mt-2.5">
-                  <div className="flex justify-between text-[10px] font-bold text-primary mb-1">
-                    <span>Progress</span>
-                    <span>{course.progressPercent ?? 0}%</span>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-h3 text-lg text-primary">{course.name}</h4>
+                    <span className="inline-block mt-1 px-2.5 py-0.5 bg-primary-container/8 rounded text-[10px] font-bold text-primary-container tracking-widest uppercase">
+                      {course.type || 'CORE'}
+                    </span>
                   </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${course.progressPercent ?? 0}%` }} />
-                  </div>
+                  <span className="font-label-caps text-label-caps text-secondary whitespace-nowrap">
+                    {course.completedTopics ?? 0}/{course.totalTopics ?? 0} TOPICS
+                  </span>
+                </div>
+                <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-3">
+                  <div className="bg-secondary h-full transition-all duration-1000 rounded-full" style={{ width: `${pct}%` }} />
                 </div>
               </Link>
             )
@@ -133,49 +103,61 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Recent Progress */}
-      {overallProgress?.courses?.filter(c => c.totalTopics > 0).length > 0 && (
-        <section className="card p-4">
-          <h3 className="font-serif text-base font-semibold text-primary mb-3">Recent Progress</h3>
-          <div className="space-y-3">
-            {overallProgress.courses.filter(c => c.totalTopics > 0).slice(0, 3).map(c => (
-              <div key={c.courseId}>
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-xs font-semibold text-on-surface truncate mr-2">{c.courseName}</p>
-                  <span className="text-[11px] font-bold text-secondary flex-shrink-0">{c.progressPercent}%</span>
-                </div>
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${c.progressPercent}%` }} />
-                </div>
+      {/* Recent Progress — status dots */}
+      <section className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/20">
+        <h3 className="font-h3 text-xl text-primary mb-4">Recent Progress</h3>
+        <div className="space-y-4">
+          {(recentItems || []).map((item, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${statusDot(item.type)}`} />
+              <div>
+                <p className="font-label-caps text-label-caps text-on-surface-variant tracking-widest">{statusLabel(item.type)}</p>
+                <p className="font-body-md text-on-surface font-medium">{item.title}</p>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </div>
+          ))}
+          {(!recentItems || recentItems.length === 0) && (
+            <p className="font-body-md text-on-surface-variant">No recent activity yet.</p>
+          )}
+        </div>
+        <button
+          onClick={() => navigate('/revision')}
+          className="w-full mt-5 py-3 bg-primary text-on-primary rounded-xl font-button text-button text-center active:scale-[0.98] transition-transform"
+        >
+          View Study History
+        </button>
+      </section>
 
       {/* Badges */}
-      <section className="card p-4">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-serif text-base font-semibold text-primary">Badges</h3>
-          <Link to="/badges" className="text-xs font-semibold text-secondary">
-            {earnedBadges.length} Earned
-          </Link>
+      <section className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/20">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-h3 text-xl text-primary">Badges</h3>
+          <span className="material-symbols-outlined text-secondary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>military_tech</span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="flex gap-3">
           {earnedBadges.slice(0, 4).map(badge => (
-            <div key={badge.id} className="aspect-square rounded-lg bg-surface-container-low flex items-center justify-center">
-              <span className="material-symbols-outlined text-secondary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+            <div key={badge.id} className="w-12 h-12 rounded-full bg-secondary-container/40 flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary-container text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                 {badge.icon}
               </span>
             </div>
           ))}
           {Array.from({ length: Math.max(0, 4 - earnedBadges.length) }).map((_, i) => (
-            <div key={`locked-${i}`} className="aspect-square rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center">
+            <div key={`locked-${i}`} className="w-12 h-12 rounded-full border-2 border-dashed border-outline-variant/30 flex items-center justify-center">
               <span className="material-symbols-outlined text-outline-variant text-sm">lock</span>
             </div>
           ))}
         </div>
       </section>
+
+      {/* New Study Session CTA */}
+      <button
+        onClick={() => navigate('/revision')}
+        className="w-full py-4 bg-primary text-on-primary rounded-2xl font-button text-button text-center flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-md"
+      >
+        <span className="material-symbols-outlined text-xl">add</span>
+        New Study Session
+      </button>
     </div>
   )
 }

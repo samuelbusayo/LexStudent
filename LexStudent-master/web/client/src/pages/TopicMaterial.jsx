@@ -86,8 +86,8 @@ export default function TopicMaterial() {
     })
   }
 
-  const handlePageClick = (page) => {
-    setPreviewPage(page)
+  const handlePageClick = (pageNum) => {
+    togglePage(pageNum)
   }
 
   useEffect(() => {
@@ -117,8 +117,8 @@ export default function TopicMaterial() {
     return () => { cancelled = true }
   }, [previewPage])
 
-  const handlePageDoubleClick = (pageNum) => {
-    togglePage(pageNum)
+  const handlePageDoubleClick = (page) => {
+    setPreviewPage(page)
   }
 
   const handleSave = async () => {
@@ -244,7 +244,7 @@ export default function TopicMaterial() {
                 <p className="text-xs text-on-surface-variant">{(file.size / 1024 / 1024).toFixed(1)} MB • {fileType.toUpperCase()}</p>
               </div>
             </div>
-            <button className="text-on-surface-variant hover:text-error transition-colors" onClick={() => { setFile(null); setPdfPages([]); setDocxHtml('') }}>
+            <button className="text-on-surface-variant hover:text-error transition-colors" onClick={() => { setFile(null); setPdfPages([]); setDocxHtml(''); setSelectedPages(new Set()) }}>
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
@@ -271,8 +271,8 @@ export default function TopicMaterial() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-[500px] overflow-y-auto p-2">
                 {pdfPages.map(page => (
                   <div key={page.number}
-                    onClick={() => handlePageClick(page)}
-                    onDoubleClick={() => handlePageDoubleClick(page.number)}
+                    onClick={() => handlePageClick(page.number)}
+                    onDoubleClick={() => handlePageDoubleClick(page)}
                     className={`rounded-xl border-2 cursor-pointer transition-all overflow-hidden ${
                       selectedPages.has(page.number) ? 'border-primary-container bg-primary-container/5 shadow-md' : 'border-outline-variant/40 hover:border-outline-variant'
                     }`}>
@@ -281,7 +281,7 @@ export default function TopicMaterial() {
                       selectedPages.has(page.number) ? 'bg-primary-container text-white' : 'bg-surface-container text-on-surface-variant'
                     }`}>{page.number}</div>
                     <div className="text-center pb-1 text-[10px] text-on-surface-variant opacity-70">
-                      Double click to select
+                      Double click to view
                     </div>
                   </div>
                 ))}
@@ -299,7 +299,7 @@ export default function TopicMaterial() {
 
           {/* Actions */}
           <div className="flex items-center gap-3 mt-stack-lg pt-stack-md border-t border-outline-variant/30">
-            <button onClick={() => { setFile(null); setPdfPages([]); setDocxHtml('') }}
+            <button onClick={() => { setFile(null); setPdfPages([]); setDocxHtml(''); setSelectedPages(new Set()) }}
               className="flex-1 px-6 py-3 border border-outline text-on-surface-variant rounded-xl font-button text-button hover:bg-surface-container-low transition-colors">
               Cancel
             </button>
@@ -368,7 +368,6 @@ export default function TopicMaterial() {
             </div>
             <div
               className="overflow-auto p-4 flex flex-col items-center max-h-[calc(90vh-4rem)]"
-              onDoubleClick={() => { handlePageDoubleClick(previewPage.number); setPreviewPage(null) }}
             >
               {previewLoading && !previewHiResUrl ? (
                 <div className="relative w-full max-w-3xl">
@@ -389,7 +388,7 @@ export default function TopicMaterial() {
                 />
               )}
               <p className="mt-4 text-sm text-on-surface-variant">
-                Double-click the image to {selectedPages.has(previewPage.number) ? 'deselect' : 'select'} this page
+                Click to {selectedPages.has(previewPage.number) ? 'deselect' : 'select'} this page
               </p>
             </div>
           </div>

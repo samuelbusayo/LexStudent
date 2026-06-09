@@ -270,3 +270,61 @@ CREATE TABLE IF NOT EXISTS quiz_attempt_answers (
   FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
   FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS material_indices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_hash TEXT NOT NULL UNIQUE,
+  original_name TEXT DEFAULT '',
+  status TEXT DEFAULT 'pending',
+  error_message TEXT DEFAULT '',
+  total_chunks INTEGER DEFAULT 0,
+  embedding_model TEXT DEFAULT 'text-embedding-3-small',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS material_chunks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  index_id INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  page_number INTEGER DEFAULT 1,
+  start_char INTEGER DEFAULT 0,
+  end_char INTEGER DEFAULT 0,
+  embedding BLOB,
+  term_frequencies TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (index_id) REFERENCES material_indices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS topic_material_indices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL,
+  index_id INTEGER NOT NULL,
+  material_id INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
+  FOREIGN KEY (index_id) REFERENCES material_indices(id) ON DELETE CASCADE,
+  FOREIGN KEY (material_id) REFERENCES materials(id) ON DELETE CASCADE,
+  UNIQUE(topic_id, index_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_conversations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL,
+  user_id INTEGER DEFAULT 1,
+  title TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conversation_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  context_chunks TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
+);

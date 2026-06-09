@@ -1,3 +1,92 @@
+// course_id -> ordered list of curriculum topic titles
+const curriculumTopics = {
+  // 5 = Property Law Practice
+  5: [
+    'WK 3: General Overview and Applicable laws',
+    'WK 4: Deeds and Power of Attorney',
+    'WK 5: Sale of Land 1',
+    'WK 6: Sale of Land 2',
+    'WK 7: Leases and Tenancies Part 1',
+    'WK 8: Leases and Covenants 2',
+    'WK 9: Mortgages',
+    'WK 10: Mortgages 2',
+    'WK 11: Land Registration law Lagos and taxation in property law',
+    'Wk 12: Wills and Codicils I',
+    'Wk 13: Wills and Codicils II',
+    'Wk 14: Probate practice',
+    'Wk 15: Personal Representatives and Assent',
+  ],
+  // 3 = Civil Litigation
+  3: [
+    'WK 3: General Overview, Introductory matters and Courts with Civil Jurisdiction',
+    'WK 4: Parties to a civil suit',
+    'WK 5: Institution of action in Magistrate Court',
+    'WK 6: Institution of action in High Court',
+    'WK 7: Interlocutory application',
+    'WK 8: Summary Judgement',
+    'WK 9: Pleadings',
+    'Wk 10: Pre trial Proceedings, trial preparation and Evidence',
+    'Wk 11: Trial and Examination of Witnesses',
+    'Wk 12: Closing address, Judgement and Enforcement of Judgement',
+    'Wk 13: Applications pending Appeals and Appeals',
+    'Wk 14: Recovery of Premises',
+    'Wk 15: Election Petition',
+    'Wk 16: Matrimonial Causes',
+    'Wk 17: Fundamental Right Enforcement',
+  ],
+  // 1 = Professional Ethics (Professional Ethics and Skills)
+  1: [
+    'WK 3: Overview of professional ethics and History of the Legal profession in Nigeria',
+    'WK 4: Regulatory Bodies in the Legal profession',
+    'WK 5: Duties of Counsel to client',
+    'WK 6: Duties of Counsel to court, state, colleagues, and profession',
+    'WK 7: Lawyers Duties on Anti Money Laundering and Corruption',
+    'WK 8: Appointment and Discipline of Judicial Officers and Legal Practitioners',
+    'WK 9: Basic Drafting Principles and Stages of Drafting',
+    'Wk 10: Drafting II',
+    'Wk 11: Improper attraction of business and interviewing and counseling skills',
+    'Wk 12: Legal Research, use of AI in legal research and closing of files',
+    'Wk 13: Arbitration I : Negotiation, conciliation, mediation, online ADR',
+    'Wk 14: Arbitration practice',
+    'Wk 15: Law office Management, use of ICT in law office management and Lagos multi door court house',
+  ],
+  // 2 = Criminal Litigation
+  2: [
+    'WK 3: Introduction to criminal litigation',
+    'WK 4: Arrest, searches, and constitutional rights',
+    'WK 5: Pre-trial investigation and Police interviews',
+    'WK 6: Jurisdiction and Venue of criminal trials',
+    'WK 7: Institution of Criminal Proceedings',
+    'WK 8: Charges 1',
+    'WK 9: Charges 2',
+    'WK 10: Bail Pending Trial',
+    'Wk 11: Constitutional Safeguards',
+    'Wk 12: Trial 1: Attendance of parties and Arraignment',
+    'Wk 13: Trial II: Trial Preparation and Evidence',
+    'Wk 14: Trial III: Examination of Witnesses',
+    'Wk 15: Trial IV: Presentation of the case of the defense',
+    'Wk 16: Judgement and sentencing',
+    'Wk 17: Appeals',
+  ],
+  // 4 = Corporate Law Practice
+  4: [
+    'WK 3: Overview of legal framework and regulatory bodies on corporate law practice in Nigeria',
+    'WK 4: Formation and Registration of Business names, Partnerships and Incorporated Trustees',
+    'WK 5: Post-incorporation matters in Business and Non-Business organizations',
+    'WK 6: Foreign Participation and Corporate contracts',
+    'WK 7: Corporate Governance 1',
+    'WK 8: Corporate Governance 2',
+    'WK 9: Financial statement, audits, and annual returns',
+    'Wk 10: Majority Rule, Minority Protection and Investigation of Companies',
+    'Wk 11: Equity Capital and Collective Investment Schemes',
+    'Wk 12: Corporate finance II Debt capital - bonds and debentures',
+    'Wk 13: Corporate Restructuring I',
+    'Wk 14: Corporate Restructuring II',
+    'Wk 15: Corporate Insolvency',
+    'Wk 16: Introduction to intellectual property rights, registration, intellectual property of generative artificial intelligence',
+  ],
+};
+
 export function seedDatabase(db) {
   const count = db.prepare('SELECT COUNT(*) as count FROM courses').get()
   if (count.count > 0) return // Already seeded
@@ -21,22 +110,16 @@ export function seedDatabase(db) {
     const insertCourse = db.prepare(`INSERT INTO courses (id, name, description, type) VALUES (?, ?, ?, ?)`)
     courses.forEach(c => insertCourse.run(...c))
 
-    // Topics for courses (varied mastery and review dates for demo)
-    const topicsData = [
-      [1, 'Legal Ethics Framework', '', 20, 14, null, null, null, '2026-05-25', 3],
-      [1, 'Professional Conduct Rules', '', 15, 5, null, null, null, '2026-05-20', 1],
-      [2, 'Mens Rea Elements', '', 18, 9, null, null, null, '2026-05-27', 7],
-      [2, 'Hearsay Rule', '', 22, 5, null, null, null, null, 1],
-      [3, 'Civil Procedure Overview', '', 25, 25, null, null, null, '2026-05-28', 14],
-      [3, 'Adverse Possession', '', 16, 3, null, null, null, '2026-05-15', 1],
-      [4, 'Company Formation', '', 20, 10, null, null, null, '2026-05-26', 3],
-      [5, 'Land Registration', '', 18, 0, null, null, null, null, 1],
-      [5, 'Easements and Covenants', '', 14, 8, null, null, null, '2026-05-22', 1],
-    ]
+    // Curriculum topics (empty shells ready for material upload)
     const insertTopic = db.prepare(
-      `INSERT INTO topics (course_id, name, subtitle, total_pages, pages_read, material_file, material_type, selected_pages, last_reviewed_at, review_interval_days) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, '[]'), ?, ?)`
+      `INSERT INTO topics (course_id, name, subtitle, total_pages, pages_read, selected_pages, total_document_pages, has_materials)
+       VALUES (?, ?, '', 0, 0, '[]', 0, 0)`
     )
-    topicsData.forEach(t => insertTopic.run(...t))
+    for (const [courseId, titles] of Object.entries(curriculumTopics)) {
+      for (const name of titles) {
+        insertTopic.run(Number(courseId), name)
+      }
+    }
 
     // Goals table left empty — users create goals via the modal
 
@@ -51,16 +134,6 @@ export function seedDatabase(db) {
     ]
     const insertActivity = db.prepare(`INSERT INTO progress_activities (id, type, title, status) VALUES (?, ?, ?, ?)`)
     activities.forEach(a => insertActivity.run(...a))
-
-    // Knowledge gaps
-    const gaps = [
-      [1, 'Evidence', 'Hearsay Rule', 25, '4 days ago'],
-      [2, 'Property Law', 'Adverse Possession', 33, '1 week ago'],
-      [3, 'Criminal Law', 'Mens Rea', 50, '2 days ago'],
-      [4, 'Constitutional', 'Commerce Clause', 20, 'Unread Topic'],
-    ]
-    const insertGap = db.prepare(`INSERT INTO knowledge_gaps (id, subject, topic, progress, last_reviewed) VALUES (?, ?, ?, ?, ?)`)
-    gaps.forEach(g => insertGap.run(...g))
 
     // Heatmap
     const intensities = [4,0,3,5,1,4,5,5,0,0,4,4,4,2,0,0,1,4,5,0,3]
@@ -128,4 +201,26 @@ export function seedDatabase(db) {
 
   insert()
   console.log('Database seeded successfully')
+}
+
+/**
+ * Idempotent sync: inserts any missing curriculum topics per course.
+ * Safe to run repeatedly — never deletes user-created topics.
+ * Matches on (course_id, name) to avoid duplicates.
+ */
+export function syncCurriculumTopics(db) {
+  const exists = db.prepare('SELECT 1 FROM topics WHERE course_id = ? AND name = ?')
+  const insert = db.prepare(
+    `INSERT INTO topics (course_id, name, subtitle, total_pages, pages_read, selected_pages, total_document_pages, has_materials)
+     VALUES (?, ?, '', 0, 0, '[]', 0, 0)`
+  )
+  const tx = db.transaction(() => {
+    for (const [courseId, titles] of Object.entries(curriculumTopics)) {
+      for (const name of titles) {
+        if (!exists.get(Number(courseId), name)) insert.run(Number(courseId), name)
+      }
+    }
+  })
+  tx()
+  console.log('Curriculum topics synced')
 }

@@ -1,0 +1,180 @@
+import { useState, useRef, useEffect } from 'react'
+import useAiChat from '../../hooks/useAiChat'
+
+function ChatMessage({ message, onPageClick }) {
+  const isUser = message.role === 'user'
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+        isUser
+          ? 'bg-primary-container text-white rounded-br-sm'
+          : 'bg-surface-container text-on-surface rounded-bl-sm'
+      }`}>
+        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        {message.streaming && (
+          <span className="inline-block w-1.5 h-4 bg-current opacity-60 animate-pulse ml-0.5 align-middle" />
+        )}
+        {!isUser && message.sources?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-outline-variant/20">
+            {[...new Set(message.sources.map(s => s.pageNumber))].sort((a, b) => a - b).map(page => (
+              <button
+                key={page}
+                onClick={() => onPageClick(page)}
+                className="text-[10px] px-1.5 py-0.5 bg-secondary/10 text-secondary rounded hover:bg-secondary/20 transition-colors font-bold"
+              >
+                p.{page}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function AiChatPanel({ topicId, onNavigateToPage }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [input, setInput] = useState('')
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+  const { messages, isLoading, error, aiStatus, sendMessage, clearConversation } = useAiChat(topicId)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  useEffect(() => {
+    if (isExpanded) inputRef.current?.focus()
+  }, [isExpanded])
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return
+    sendMessage(input.trim())
+    setInput('')
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  if (!isExpanded) {
+    return (
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-primary-container text-white rounded-full shadow-lg hover:shadow-xl hover:opacity-95 transition-all active:scale-95 group"
+      >
+        <span className="material-symbols-outlined text-xl">smart_toy</span>
+        <span className="font-button text-sm">Ask AI</span>
+        {aiStatus && !aiStatus.available && (
+          <span className="w-2 h-2 bg-amber-400 rounded-full absolute -top-0.5 -right-0.5" />
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-[400px] h-[520px] bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/30 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/30 bg-surface-container-lowest flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary-container text-lg">smart_toy</span>
+          <div>
+            <h3 className="font-h3 text-sm text-primary-container">AI Study Assistant</h3>
+            <span className="text-[10px] text-on-surface-variant">
+              {!aiStatus?.apiKeyConfigured ? 'API key not set'
+                : aiStatus?.indexStatus === 'completed' ? `${aiStatus.totalChunks} chunks indexed`
+                : aiStatus?.indexStatus === 'processing' ? 'Indexing...'
+                : aiStatus?.indexStatus === 'not_indexed' ? 'Material not indexed'
+                : 'Ready'}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="p-1.5 text-on-surface-variant hover:text-error rounded transition-colors"
+              title="Clear conversation"
+            >
+              <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
+            </button>
+          )}
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="p-1.5 text-on-surface-variant hover:text-on-surface rounded transition-colors"
+            title="Minimize"
+          >
+            <span className="material-symbols-outlined text-[18px]">remove</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 && (
+          <div className="text-center py-8 text-on-surface-variant">
+            <span className="material-symbols-outlined text-4xl mb-3 opacity-40">psychology</span>
+            <p className="text-sm font-bold mb-1">Ask about your material</p>
+            <p className="text-xs leading-relaxed max-w-[250px] mx-auto">
+              Ask questions about the study material and get answers with page references.
+            </p>
+            <div className="mt-4 space-y-1.5">
+              {['Summarize the key points', 'Explain the main cases cited', 'What are the time limits?'].map(q => (
+                <button
+                  key={q}
+                  onClick={() => { setInput(q); inputRef.current?.focus() }}
+                  className="block w-full text-left text-xs px-3 py-2 bg-surface-container rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map((msg) => (
+          <ChatMessage key={msg.id} message={msg} onPageClick={onNavigateToPage} />
+        ))}
+        {error && (
+          <div className="text-xs text-error bg-error-container/20 rounded-lg px-3 py-2 border border-error/20">
+            {error}
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t border-outline-variant/30 flex-shrink-0">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={aiStatus?.apiKeyConfigured ? 'Ask a question...' : 'Set OPENROUTER_API_KEY to enable AI'}
+            disabled={!aiStatus?.apiKeyConfigured}
+            rows={1}
+            className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-body text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 placeholder:text-on-surface-variant/50 max-h-20"
+            style={{ minHeight: '36px' }}
+            onInput={(e) => {
+              e.target.style.height = 'auto'
+              e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px'
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading || !aiStatus?.apiKeyConfigured}
+            className="p-2 bg-primary-container text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
+          >
+            <span className="material-symbols-outlined text-lg">
+              {isLoading ? 'hourglass_top' : 'send'}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

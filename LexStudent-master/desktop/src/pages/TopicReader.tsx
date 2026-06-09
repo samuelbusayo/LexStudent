@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import api from '../services/api'
+import SearchBar from '../components/reader/SearchBar'
+import AiChatPanel from '../components/reader/AiChatPanel'
 
 const AUTOSAVE_DELAY = 1200
 
@@ -139,6 +141,25 @@ export default function TopicReader() {
 
   const visiblePageCount = selectedPages ? selectedPages.length : totalPages
   const currentPage = selectedPages ? selectedPages[currentIndex] : currentIndex + 1
+
+  // ─── Search (stub — no document rendering in desktop) ───
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false)
+        setSearchQuery('')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [searchOpen])
 
   // ─── Load Summary + Highlights ───
   const loadSummaryData = useCallback(async () => {
@@ -422,6 +443,22 @@ export default function TopicReader() {
             <span className="material-symbols-outlined text-lg">chevron_right</span>
           </button>
           <div className="w-px h-6 bg-outline-variant/30 mx-1" />
+          {searchOpen ? (
+            <SearchBar
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              currentMatch={-1}
+              totalMatches={0}
+              onNext={() => {}}
+              onPrev={() => {}}
+              onClose={() => { setSearchOpen(false); setSearchQuery('') }}
+            />
+          ) : (
+            <button onClick={() => setSearchOpen(true)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded transition-colors" title="Find (Ctrl+F)">
+              <span className="material-symbols-outlined text-lg">search</span>
+            </button>
+          )}
+          <div className="w-px h-6 bg-outline-variant/30 mx-1" />
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded transition-colors">
             <span className="material-symbols-outlined text-lg">{sidebarOpen ? 'right_panel_close' : 'right_panel_open'}</span>
           </button>
@@ -570,6 +607,18 @@ export default function TopicReader() {
         .hl-chip:hover .hl-del { opacity: 1; }
         .summary-editor:empty::before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; }
       `}</style>
+
+      {/* AI Chat Panel */}
+      <AiChatPanel
+        topicId={topicId}
+        onNavigateToPage={(pageNum: number) => {
+          const idx = selectedPages ? selectedPages.indexOf(pageNum) : pageNum - 1
+          if (idx >= 0) {
+            setCurrentIndex(idx)
+            try { localStorage.setItem(storageKey, JSON.stringify({ currentPage: pageNum, timestamp: Date.now() })) } catch {}
+          }
+        }}
+      />
     </div>
   )
 }

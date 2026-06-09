@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useCourse, useTopics } from '../hooks/useCourses'
-import TopicCard from '../components/courses/TopicCard'
 
 export default function CourseDetail() {
   const { courseId } = useParams()
@@ -16,14 +15,12 @@ export default function CourseDetail() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        <div className="skeleton h-8 w-3/4 rounded" />
-        <div className="skeleton h-4 w-full rounded" />
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          <div className="skeleton h-16 rounded-lg" />
-          <div className="skeleton h-16 rounded-lg" />
-          <div className="skeleton h-16 rounded-lg" />
-        </div>
+      <div className="space-y-5">
+        <div className="skeleton h-72 rounded-2xl" />
+        <div className="skeleton h-12 rounded-full" />
+        <div className="skeleton h-6 w-48 rounded" />
+        <div className="skeleton h-24 rounded-2xl" />
+        <div className="skeleton h-24 rounded-2xl" />
       </div>
     )
   }
@@ -49,72 +46,126 @@ export default function CourseDetail() {
     courseProgress = totalPages > 0 ? Math.round((readPages / totalPages) * 100) : 0
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div>
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-on-surface-variant text-sm mb-2 active:opacity-60">
-          <span className="material-symbols-outlined text-base">arrow_back</span>
-          Back
-        </button>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <h1 className="font-serif text-xl font-semibold text-primary truncate">{course?.name}</h1>
-            <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{course?.description}</p>
-          </div>
-          <Link
-            to={`/courses/${courseId}/topics/new`}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-2 bg-primary text-on-primary rounded-lg text-xs font-semibold active:scale-95 transition-transform"
-          >
-            <span className="material-symbols-outlined text-sm">add</span>
-            Add
-          </Link>
-        </div>
-      </div>
+  const circumference = 2 * Math.PI * 52
+  const offset = circumference - (courseProgress / 100) * circumference
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="card p-3 text-center">
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Topics</p>
-          <p className="font-serif text-xl font-bold text-primary mt-0.5">{totalTopicCount}</p>
+  return (
+    <div className="space-y-6">
+      {/* Hero Card — centered progress ring + course info */}
+      <section className="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/20 text-center">
+        {/* Progress Ring */}
+        <div className="relative w-36 h-36 mx-auto mb-5">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#f0eded" strokeWidth="6" />
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#735c00" strokeWidth="6"
+              strokeDasharray={circumference} strokeDashoffset={offset}
+              strokeLinecap="round" className="transition-all duration-1000" />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-h1 text-3xl text-primary">{courseProgress}%</span>
+            <span className="font-label-caps text-[10px] text-on-surface-variant tracking-widest mt-0.5">COMPLETE</span>
+          </div>
         </div>
-        <div className="card p-3 text-center">
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Progress</p>
-          <p className="font-serif text-xl font-bold text-primary mt-0.5">{courseProgress}%</p>
-          <p className="text-[9px] text-on-surface-variant">{completedCount}/{totalTopicCount} done</p>
-        </div>
-        <div className="card p-3 text-center">
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Files</p>
-          <p className="font-serif text-xl font-bold text-primary mt-0.5">
-            {topicsArr.filter(t => t.hasMaterials).length}
-          </p>
-        </div>
-      </div>
+
+        {/* Course type tag */}
+        <span className="inline-block px-3 py-1 bg-secondary-container/30 rounded-full font-label-caps text-label-caps text-secondary tracking-widest">
+          {course?.type || 'CORE'}
+        </span>
+
+        {/* Course name */}
+        <h1 className="font-h1 text-3xl text-primary mt-3">{course?.name}</h1>
+
+        {/* Description */}
+        <p className="font-body-md text-on-surface-variant mt-2 leading-relaxed max-w-sm mx-auto">
+          {course?.description}
+        </p>
+      </section>
 
       {/* Search */}
       <div className="relative">
-        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
         <input
-          className="input-field pl-10 !rounded-lg !text-sm"
-          placeholder="Search topics..."
+          className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-full pl-12 pr-4 py-3 font-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition-all"
+          placeholder="Search subtopics or modules..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Topic List */}
-      {filteredTopics.length === 0 ? (
-        <div className="text-center py-12 text-on-surface-variant">
-          <span className="material-symbols-outlined text-4xl mb-2 block">menu_book</span>
-          <p className="text-sm">No topics yet. Tap "Add" to get started.</p>
+      {/* Curriculum Breakdown */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-h2 text-xl text-primary">Curriculum Breakdown</h2>
+          <Link
+            to={`/courses/${courseId}/topics/new`}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary-container text-white rounded-xl font-button text-sm active:scale-95 transition-transform"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            Add Topic
+          </Link>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {filteredTopics.map(topic => (
-            <TopicCard key={topic.id} topic={topic} courseId={courseId} />
-          ))}
+
+        {filteredTopics.length === 0 ? (
+          <div className="text-center py-16 text-on-surface-variant">
+            <span className="material-symbols-outlined text-5xl mb-3 block">menu_book</span>
+            <p className="font-body-md">No topics yet. Tap "Add Topic" to get started.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredTopics.map(topic => {
+              const selectedPages = topic.selectedPages || []
+              const totalPages = selectedPages.length
+              const pagesRead = Math.min(topic.pagesRead ?? 0, totalPages)
+              const pct = totalPages > 0 ? Math.round((pagesRead / totalPages) * 100) : 0
+
+              return (
+                <Link
+                  key={topic.id}
+                  to={`/courses/${courseId}/topics/${topic.id}/read`}
+                  className="block bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/20 active:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <h4 className="font-h3 text-base text-primary font-semibold">{topic.name}</h4>
+                      {topic.description && (
+                        <p className="text-sm text-on-surface-variant mt-0.5">{topic.description}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(`/courses/${courseId}/topics/${topic.id}/materials`) }}
+                      className="flex-shrink-0 w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center active:bg-primary-container active:text-white transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-xl text-primary-container">description</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="font-label-caps text-[10px] text-secondary tracking-widest">PROGRESS</span>
+                    <span className="font-label-caps text-[10px] text-on-surface-variant tracking-widest">{pagesRead}/{totalPages} PAGES READ</span>
+                  </div>
+                  <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-1.5">
+                    <div className="bg-secondary h-full transition-all duration-700 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Study Guide CTA — dark banner */}
+      <section className="bg-primary-container rounded-2xl p-6 text-center overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-3 opacity-10">
+          <span className="material-symbols-outlined text-[80px]">menu_book</span>
         </div>
-      )}
+        <h3 className="font-h2 text-xl text-white relative z-10">Study Guide: Exam Prep</h3>
+        <p className="text-white/70 font-body-md mt-2 relative z-10 leading-relaxed">
+          Download the curated review materials for the upcoming {course?.name} mock exam.
+        </p>
+        <button className="mt-4 inline-flex items-center gap-2 px-6 py-3 bg-secondary-container text-on-secondary-container rounded-full font-button text-button relative z-10 active:scale-95 transition-transform">
+          <span className="material-symbols-outlined text-lg">download</span>
+          Get Study Guide
+        </button>
+      </section>
     </div>
   )
 }

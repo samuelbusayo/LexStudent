@@ -16,6 +16,7 @@ import summariesRouter from "./routes/summaries.js"
 import materialsRouter from "./routes/materials.js"
 import studyNotesRouter from "./routes/studyNotes.js"
 import quizRouter from "./routes/quiz.js"
+import aiRouter from "./routes/ai.js"
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -43,6 +44,7 @@ app.use("/api/summaries", summariesRouter)
 app.use("/api/materials", materialsRouter)
 app.use("/api/study-notes", studyNotesRouter)
 app.use("/api/quiz", quizRouter)
+app.use("/api/ai", aiRouter)
 
 // Health check
 app.get("/api/health", (req, res) => {

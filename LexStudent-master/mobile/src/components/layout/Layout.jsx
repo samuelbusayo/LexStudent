@@ -10,55 +10,55 @@ export default function Layout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      {/* Top Header */}
-      <header className="flex justify-between items-center px-4 h-16 bg-white border-b border-outline-variant/30 safe-top">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-2xl font-bold">gavel</span>
-          <span className="font-serif text-lg font-bold text-primary tracking-tight">LexScholar</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/badges')}
-            className="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors text-xl"
-          >
-            military_tech
-          </button>
-          <button 
-            onClick={() => navigate('/logout')}
-            className="w-8 h-8 rounded-full bg-primary-container text-white text-xs font-bold flex items-center justify-center border border-outline-variant/30 cursor-pointer"
-            title="Sign Out"
-          >
+      {/* Top Header — matches mockup style */}
+      <header className="flex justify-between items-center px-container-padding h-14 bg-background safe-top">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-primary-container border-2 border-secondary-container/50 flex items-center justify-center text-white text-[10px] font-bold overflow-hidden">
             {initials}
+          </div>
+          <span className="font-h2 text-lg font-bold text-primary tracking-tight">LexScholar</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate('/badges')}
+            className="material-symbols-outlined text-on-surface-variant p-2 rounded-full transition-colors text-xl active:bg-surface-container"
+          >
+            notifications
+          </button>
+          <button
+            className="material-symbols-outlined text-on-surface-variant p-2 rounded-full transition-colors text-xl active:bg-surface-container"
+          >
+            search
           </button>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative">
-        <div className="scroll-area h-full px-4 py-6">
+        <div className="scroll-area h-full px-container-padding py-4">
           <Outlet />
         </div>
       </main>
 
       {/* Bottom Navigation */}
       <nav className="bottom-nav">
-        <NavLink to="/" className={({ isActive }) => `bottom-nav-item \${isActive ? 'active' : ''}`}>
+        <NavLink to="/" end className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
           <span className="material-symbols-outlined text-xl">dashboard</span>
-          <span>Home</span>
+          <span>Dashboard</span>
         </NavLink>
-        <NavLink to="/planner" className={({ isActive }) => `bottom-nav-item \${isActive ? 'active' : ''}`}>
-          <span className="material-symbols-outlined text-xl">calendar_today</span>
+        <NavLink to="/planner" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <span className="material-symbols-outlined text-xl">event_note</span>
           <span>Planner</span>
         </NavLink>
-        <NavLink to="/revision" className={({ isActive }) => `bottom-nav-item \${isActive ? 'active' : ''}`}>
-          <span className="material-symbols-outlined text-xl">psychology</span>
+        <NavLink to="/revision" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <span className="material-symbols-outlined text-xl">auto_stories</span>
           <span>Revision</span>
         </NavLink>
-        <NavLink to="/cases" className={({ isActive }) => `bottom-nav-item \${isActive ? 'active' : ''}`}>
+        <NavLink to="/cases" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
           <span className="material-symbols-outlined text-xl">gavel</span>
           <span>Cases</span>
         </NavLink>
-        <NavLink to="/badges" className={({ isActive }) => `bottom-nav-item \${isActive ? 'active' : ''}`}>
+        <NavLink to="/badges" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
           <span className="material-symbols-outlined text-xl">military_tech</span>
           <span>Badges</span>
         </NavLink>

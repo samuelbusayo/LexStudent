@@ -3,7 +3,7 @@ import express from "express"
 import cors from "cors"
 import morgan from "morgan"
 import { initDb } from "./db.js"
-import { seedDatabase } from "./seed.js"
+import { seedDatabase, syncCurriculumTopics } from "./seed.js"
 import coursesRouter from "./routes/courses.js"
 import goalsRouter from "./routes/goals.js"
 import progressRouter from "./routes/progress.js"
@@ -25,6 +25,7 @@ app.use(morgan('dev'))
 // Initialize database
 const db = initDb()
 seedDatabase(db)
+syncCurriculumTopics(db)
 app.locals.db = db
 
 // Routes

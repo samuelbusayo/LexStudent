@@ -18,17 +18,17 @@ export default function Heatmap() {
   const targetTotal = data?.targetTotal ?? 5;
 
   return (
-    <div className="bg-white rounded-xl p-6 border border-[#E0E0D0] flex flex-col justify-between">
+    <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/20 flex flex-col justify-between">
       <div>
-        <h3 className="font-h3 text-primary-container mb-4">Revision Intensity</h3>
+        <h3 className="font-h3 text-lg text-primary mb-4">Revision Intensity</h3>
         <div className="grid grid-cols-7 gap-2">
           {intensities.map((v, i) => (
             <div key={i} className={`aspect-square rounded-sm ${intensityClass(v)}`} />
           ))}
         </div>
       </div>
-      <div className="pt-6 border-t border-[#E0E0D0] mt-6">
-        <p className="text-body-md font-medium text-primary-container">Target Met</p>
+      <div className="pt-5 border-t border-outline-variant/20 mt-5">
+        <p className="font-body-md font-medium text-primary">Target Met</p>
         <p className="text-label-caps text-on-surface-variant">{targetMet}/{targetTotal} Days this week</p>
       </div>
     </div>

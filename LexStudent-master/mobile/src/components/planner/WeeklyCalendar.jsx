@@ -33,57 +33,44 @@ export default function WeeklyCalendar({ selectedDate, onSelectDate, goalDates }
   const goalDateSet = useMemo(() => new Set(goalDates || []), [goalDates]);
 
   return (
-    <section className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-8">
-      <div className="md:hidden flex justify-between items-center mb-2 px-1">
-        <span className="font-label-caps text-label-caps text-primary-container">{month} {year}</span>
-        <span className="font-label-caps text-label-caps text-secondary">WEEK {weekNum}</span>
+    <section className="mb-2">
+      {/* Month / Week header */}
+      <div className="flex justify-between items-center mb-3 px-1">
+        <span className="font-label-caps text-label-caps text-primary-container tracking-widest">{month} {year}</span>
+        <span className="font-label-caps text-label-caps text-secondary tracking-widest">WEEK {weekNum}</span>
       </div>
-      {days.map((d) => {
-        const isSelected = selectedDate === d.dateStr;
-        const hasGoal = goalDateSet.has(d.dateStr);
 
-        if (d.isToday || isSelected) {
+      {/* Vertical day list */}
+      <div className="space-y-2">
+        {days.map((d) => {
+          const isSelected = selectedDate === d.dateStr;
+          const hasGoal = goalDateSet.has(d.dateStr);
+
           return (
             <button
               key={d.dateStr}
               onClick={() => onSelectDate?.(d.dateStr)}
-              className={`bg-white p-4 rounded-xl border-2 shadow-md flex flex-col items-center justify-center ring-2 transition-all ${
+              className={`w-full flex items-center justify-center flex-col py-4 rounded-2xl border-2 transition-all ${
                 isSelected
-                  ? 'border-secondary-container ring-secondary-container/20'
-                  : 'border-secondary-container/50 ring-secondary-container/10'
+                  ? 'bg-white border-secondary-container shadow-md ring-2 ring-secondary-container/20'
+                  : d.isPast
+                    ? 'bg-white border-outline-variant/10 opacity-50'
+                    : 'bg-white border-outline-variant/10 hover:border-secondary-container/30'
               }`}
             >
-              <span className="font-label-caps text-label-caps text-secondary">{d.label}</span>
-              <span className="font-h3 text-h3 text-primary-container font-bold">{d.date}</span>
-              {(hasGoal || d.isToday) && <div className="w-1.5 h-1.5 rounded-full bg-secondary mt-1"></div>}
+              <span className={`font-label-caps text-label-caps tracking-widest ${
+                isSelected ? 'text-secondary' : d.isPast ? 'text-outline' : 'text-on-surface-variant'
+              }`}>{d.label}</span>
+              <span className={`font-h3 text-2xl mt-0.5 ${
+                isSelected ? 'text-primary-container font-bold' : d.isPast ? 'text-outline' : 'text-primary-container'
+              }`}>{d.date}</span>
+              {(hasGoal || (d.isToday && isSelected)) && (
+                <div className={`w-1.5 h-1.5 rounded-full mt-1 ${isSelected ? 'bg-secondary' : 'bg-outline-variant'}`} />
+              )}
             </button>
           );
-        }
-        if (d.isPast) {
-          return (
-            <button
-              key={d.dateStr}
-              onClick={() => onSelectDate?.(d.dateStr)}
-              className="bg-white p-4 rounded-xl border border-[#E0E0D0] flex flex-col items-center justify-center opacity-60 hover:opacity-80 transition-opacity"
-            >
-              <span className="font-label-caps text-label-caps text-slate-400">{d.label}</span>
-              <span className="font-h3 text-h3 text-slate-400">{d.date}</span>
-              {hasGoal && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>}
-            </button>
-          );
-        }
-        return (
-          <button
-            key={d.dateStr}
-            onClick={() => onSelectDate?.(d.dateStr)}
-            className="bg-white p-4 rounded-xl border border-[#E0E0D0] flex flex-col items-center justify-center hover:border-secondary-container/40 transition-colors"
-          >
-            <span className="font-label-caps text-label-caps text-slate-500">{d.label}</span>
-            <span className="font-h3 text-h3 text-primary-container">{d.date}</span>
-            {hasGoal && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1"></div>}
-          </button>
-        );
-      })}
+        })}
+      </div>
     </section>
   );
 }

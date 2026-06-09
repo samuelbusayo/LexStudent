@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { getDb } from "../db.js";
+import { indexMaterial } from "../helpers/indexingPipeline.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'materials');
@@ -49,6 +50,10 @@ router.post("/upload/:topicId", upload.single('file'), (req, res) => {
 
   const material = db.prepare("SELECT * FROM materials WHERE id = ?").get(result.lastInsertRowid);
   res.status(201).json(material);
+
+  indexMaterial(result.lastInsertRowid, Number(req.params.topicId)).catch(err => {
+    console.error('[materials] Background indexing failed:', err.message)
+  })
 });
 
 router.get("/:topicId", (req, res) => {
@@ -80,6 +85,17 @@ router.delete("/:id", (req, res) => {
 
   db.prepare("DELETE FROM materials WHERE id = ?").run(req.params.id);
   res.json({ success: true });
+});
+
+router.get("/index-status/:materialId", (req, res) => {
+  const db = getDb();
+  const link = db.prepare(
+    `SELECT mi.* FROM material_indices mi
+     JOIN topic_material_indices tmi ON tmi.index_id = mi.id
+     WHERE tmi.material_id = ?`
+  ).get(req.params.materialId);
+  if (!link) return res.json({ status: 'not_started' });
+  res.json(link);
 });
 
 export default router;

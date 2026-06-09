@@ -6,6 +6,9 @@ import 'pdfjs-dist/web/pdf_viewer.css'
 import { renderAsync as renderDocx } from 'docx-preview'
 import { PptxViewer, parseZip, buildPresentation } from '@aiden0z/pptx-renderer'
 import api from '../services/api'
+import useDocumentSearch from '../hooks/useDocumentSearch'
+import SearchBar from '../components/reader/SearchBar'
+import AiChatPanel from '../components/reader/AiChatPanel'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
@@ -148,6 +151,10 @@ export default function TopicReader() {
   const zoom = ZOOM_LEVELS[zoomIndex]
   const currentPage = selectedPages ? selectedPages[currentIndex] : currentIndex + 1
   const visiblePageCount = selectedPages ? selectedPages.length : totalPages
+
+  const search = useDocumentSearch({
+    pdfWrapperRef, docxContainerRef, pptxContainerRef, fileType, currentPage,
+  })
 
   // ─── Load Summary + Highlights from server ───
   const loadSummaryData = useCallback(async () => {
@@ -409,7 +416,7 @@ export default function TopicReader() {
 
   useEffect(() => {
     if (pdfDocRef.current && currentPage > 0 && currentPage <= totalPages) {
-      renderPdfPage(currentPage, zoom)
+      renderPdfPage(currentPage, zoom).then(() => search.reapplySearch())
     }
   }, [currentPage, totalPages, zoom, renderPdfPage])
 
@@ -484,6 +491,21 @@ export default function TopicReader() {
     try { localStorage.setItem(storageKey, JSON.stringify({ currentPage: nextPage, timestamp: Date.now() })) } catch {}
     return next
   })
+
+  // ─── Keyboard shortcuts ───
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        search.open()
+      }
+      if (e.key === 'Escape' && search.isOpen) {
+        search.close()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [search.isOpen, search.open, search.close])
 
   // Back button: honor router state — go back if we came from summary or planner
   const handleBack = () => {
@@ -688,6 +710,22 @@ export default function TopicReader() {
           <button onClick={handleNextPage} disabled={currentIndex >= visiblePageCount - 1} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded transition-colors disabled:opacity-30" title="Next Page">
             <span className="material-symbols-outlined text-lg">chevron_right</span>
           </button>
+          <div className="w-px h-6 bg-outline-variant/30 mx-1" />
+          {search.isOpen ? (
+            <SearchBar
+              query={search.query}
+              onQueryChange={search.setQuery}
+              currentMatch={search.currentMatchIndex}
+              totalMatches={search.totalMatches}
+              onNext={search.goNext}
+              onPrev={search.goPrev}
+              onClose={search.close}
+            />
+          ) : (
+            <button onClick={search.open} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded transition-colors" title="Find (Ctrl+F)">
+              <span className="material-symbols-outlined text-lg">search</span>
+            </button>
+          )}
           <div className="w-px h-6 bg-outline-variant/30 mx-1" />
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 text-on-surface-variant hover:bg-surface-container rounded transition-colors" title="Toggle Sidebar">
             <span className="material-symbols-outlined text-lg">{sidebarOpen ? 'right_panel_close' : 'right_panel_open'}</span>
@@ -909,7 +947,30 @@ export default function TopicReader() {
           color: #9ca3af;
           pointer-events: none;
         }
+
+        /* Document search highlights */
+        .search-match {
+          background: rgba(255, 235, 59, 0.4);
+          border-radius: 1px;
+        }
+        .search-match-current {
+          background: rgba(255, 152, 0, 0.6);
+          border-radius: 1px;
+          outline: 2px solid #f57c00;
+        }
       `}</style>
+
+      {/* AI Chat Panel */}
+      <AiChatPanel
+        topicId={topicId}
+        onNavigateToPage={(pageNum) => {
+          const idx = selectedPages ? selectedPages.indexOf(pageNum) : pageNum - 1
+          if (idx >= 0) {
+            setCurrentIndex(idx)
+            try { localStorage.setItem(storageKey, JSON.stringify({ currentPage: pageNum, timestamp: Date.now() })) } catch {}
+          }
+        }}
+      />
     </div>
   )
 }
