@@ -4,9 +4,6 @@ let client = null
 
 function getClient() {
   if (!client) {
-    if (!process.env.OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY not configured')
-    }
     client = new OpenAI({
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -15,7 +12,7 @@ function getClient() {
   return client
 }
 
-export async function generateEmbeddings(texts, { model = 'openai/text-embedding-3-small', batchSize = 20 } = {}) {
+export async function generateEmbeddings(texts, { model = 'qwen/qwen3-embedding-8b', batchSize = 20 } = {}) {
   const c = getClient()
   const allEmbeddings = []
 

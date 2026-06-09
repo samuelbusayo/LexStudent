@@ -14,7 +14,7 @@ export default function useAiChat(topicId) {
     api.get(`/ai/status/${topicId}`).then(res => {
       setAiStatus(res.data)
     }).catch(() => {
-      setAiStatus({ available: false, apiKeyConfigured: false, indexStatus: 'error' })
+      setAiStatus({ available: false, indexStatus: 'error' })
     })
   }, [topicId])
 

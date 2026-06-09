@@ -83,9 +83,6 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
       >
         <span className="material-symbols-outlined text-xl">smart_toy</span>
         <span className="font-button text-sm">Ask AI</span>
-        {aiStatus && !aiStatus.available && (
-          <span className="w-2 h-2 bg-amber-400 rounded-full absolute -top-0.5 -right-0.5" />
-        )}
       </button>
     )
   }
@@ -99,8 +96,7 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
           <div>
             <h3 className="font-h3 text-sm text-primary-container">AI Study Assistant</h3>
             <span className="text-[10px] text-on-surface-variant">
-              {!aiStatus?.apiKeyConfigured ? 'API key not set'
-                : aiStatus?.indexStatus === 'completed' ? `${aiStatus.totalChunks} chunks indexed`
+              {aiStatus?.indexStatus === 'completed' ? `${aiStatus.totalChunks} chunks indexed`
                 : aiStatus?.indexStatus === 'processing' ? 'Indexing...'
                 : aiStatus?.indexStatus === 'not_indexed' ? 'Material not indexed'
                 : 'Ready'}
@@ -160,8 +156,7 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={aiStatus?.apiKeyConfigured ? 'Ask a question...' : 'Set OPENROUTER_API_KEY to enable AI'}
-            disabled={!aiStatus?.apiKeyConfigured}
+            placeholder="Ask a question..."
             rows={1}
             className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-body text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 placeholder:text-on-surface-variant/50 max-h-20"
             style={{ minHeight: '36px' }}
@@ -173,7 +168,7 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading || !aiStatus?.apiKeyConfigured}
+            disabled={!input.trim() || isLoading}
             className="p-2 bg-primary-container text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
           >
             <span className="material-symbols-outlined text-lg">

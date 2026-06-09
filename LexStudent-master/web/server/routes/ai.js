@@ -7,11 +7,9 @@ import { getIndexStatusForTopic } from '../helpers/indexingPipeline.js'
 const router = Router()
 
 router.get('/status/:topicId', (req, res) => {
-  const hasKey = !!process.env.OPENROUTER_API_KEY
   const index = getIndexStatusForTopic(req.params.topicId)
   res.json({
-    available: hasKey && index?.status === 'completed',
-    api_key_configured: hasKey,
+    available: index?.status === 'completed',
     index_status: index?.status || 'not_indexed',
     total_chunks: index?.total_chunks || 0,
   })
@@ -20,9 +18,6 @@ router.get('/status/:topicId', (req, res) => {
 router.post('/chat', async (req, res) => {
   const { topicId, message, conversationId } = req.body
   if (!topicId || !message) return res.status(400).json({ error: 'topicId and message required' })
-  if (!process.env.OPENROUTER_API_KEY) {
-    return res.status(503).json({ error: 'AI not configured. Set OPENROUTER_API_KEY in .env' })
-  }
 
   const db = getDb()
 
@@ -83,7 +78,7 @@ If the excerpts don't contain relevant information, say so and provide general g
     ]
 
     const stream = await client.chat.completions.create({
-      model: 'openai/gpt-4o-mini',
+      model: 'deepseek/deepseek-v4-flash',
       messages,
       stream: true,
       max_tokens: 1500,

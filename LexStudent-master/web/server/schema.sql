@@ -278,7 +278,7 @@ CREATE TABLE IF NOT EXISTS material_indices (
   status TEXT DEFAULT 'pending',
   error_message TEXT DEFAULT '',
   total_chunks INTEGER DEFAULT 0,
-  embedding_model TEXT DEFAULT 'text-embedding-3-small',
+  embedding_model TEXT DEFAULT 'qwen3-embedding-8b',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

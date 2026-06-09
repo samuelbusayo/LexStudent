@@ -3,7 +3,6 @@ import api from '../services/api'
 
 interface AiStatus {
   available: boolean
-  apiKeyConfigured: boolean
   indexStatus: string
   totalChunks: number
 }
@@ -35,7 +34,7 @@ export default function useAiChat(topicId: string | undefined) {
     api.get(`/ai/status/${topicId}`).then(res => {
       setAiStatus(res.data as AiStatus)
     }).catch(() => {
-      setAiStatus({ available: false, apiKeyConfigured: false, indexStatus: 'error', totalChunks: 0 })
+      setAiStatus({ available: false, indexStatus: 'error', totalChunks: 0 })
     })
   }, [topicId])
 
