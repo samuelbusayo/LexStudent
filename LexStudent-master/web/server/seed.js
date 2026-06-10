@@ -49,6 +49,11 @@ const curriculumTopics = {
     'Wk 13: Arbitration I : Negotiation, conciliation, mediation, online ADR',
     'Wk 14: Arbitration practice',
     'Wk 15: Law office Management, use of ICT in law office management and Lagos multi door court house',
+    'Contempt of Court',
+    'Rules of Interpretation of Statutes',
+    'Trial Advocacy',
+    'Legal Practitioners Remuneration',
+    'Legal Practitioners Account Rules',
   ],
   // 2 = Criminal Litigation
   2: [
