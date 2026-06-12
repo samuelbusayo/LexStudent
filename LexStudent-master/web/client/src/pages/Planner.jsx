@@ -1,10 +1,35 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useGoals, useCreateGoal } from '../hooks/useGoals';
 import { useReminders, useToggleReminder } from '../hooks/useReminders';
 import WeeklyCalendar from '../components/planner/WeeklyCalendar';
 import GoalCard from '../components/planner/GoalCard';
 import GoalModal from '../components/planner/GoalModal';
 import ReminderToggle from '../components/planner/ReminderToggle';
+import DailyProgressSummary from '../components/planner/DailyProgressSummary';
+import GoalCompleteToast from '../components/planner/GoalCompleteToast';
+
+function computeGoalProgress(goal, occurrence) {
+  const hasTopicLink = !!goal.topicId && !!goal.courseId;
+  const hasTargetPages = goal.targetPages?.length > 0;
+  if (hasTopicLink && hasTargetPages) {
+    const selPages = goal.selectedPages?.length > 0 ? goal.selectedPages : null;
+    const pagesRead = goal.pagesRead || 0;
+    const baseline = goal.baselinePagesRead || 0;
+    let readSinceSet;
+    if (selPages) {
+      readSinceSet = new Set(selPages.slice(baseline, pagesRead));
+    } else {
+      readSinceSet = new Set(
+        Array.from({ length: Math.max(0, pagesRead - baseline) }, (_, i) => baseline + i + 1)
+      );
+    }
+    const targetPagesRead = goal.targetPages.filter(p => readSinceSet.has(p)).length;
+    return goal.targetPages.length > 0
+      ? Math.round((targetPagesRead / goal.targetPages.length) * 100)
+      : 0;
+  }
+  return occurrence?.progress ?? goal.progress ?? 0;
+}
 
 export default function Planner() {
   const { data: goals } = useGoals();
@@ -14,6 +39,33 @@ export default function Planner() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [completedToast, setCompletedToast] = useState(null);
+
+  // Track which goal+occurrence pairs we've already toasted so we don't re-fire on every refetch.
+  const seenCompleteRef = useRef(new Set());
+  const firstRunRef = useRef(true);
+
+  // Detect newly-completed goals (transition to complete) and toast.
+  useEffect(() => {
+    if (!goals) return;
+    for (const g of goals) {
+      for (const occ of (g.occurrences || [])) {
+        const key = `${g.id}:${occ.id}`;
+        const progress = computeGoalProgress(g, occ);
+        const isComplete = occ.status === 'completed' || progress >= 100;
+        if (isComplete && !seenCompleteRef.current.has(key)) {
+          // First mount: just record so we don't toast historical completions.
+          if (firstRunRef.current) {
+            seenCompleteRef.current.add(key);
+          } else {
+            seenCompleteRef.current.add(key);
+            setCompletedToast(g);
+          }
+        }
+      }
+    }
+    firstRunRef.current = false;
+  }, [goals]);
 
   // Dates that have any goal occurrence — for calendar dots
   const goalDates = useMemo(() => {
@@ -58,6 +110,8 @@ export default function Planner() {
         goalDates={goalDates}
       />
 
+      <DailyProgressSummary goals={filteredGoals} selectedDate={selectedDate} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="flex items-center gap-2 mb-4">
@@ -88,7 +142,7 @@ export default function Planner() {
             <span className="material-symbols-outlined text-secondary">notifications_active</span>
             <h2 className="font-h2 text-h2 text-primary-container">Reminders</h2>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-4">
             {(reminders || []).map((reminder) => (
               <ReminderToggle
                 key={reminder.id}
@@ -113,6 +167,11 @@ export default function Planner() {
           onClose={() => setShowModal(false)}
         />
       )}
+
+      <GoalCompleteToast
+        goal={completedToast}
+        onClose={() => setCompletedToast(null)}
+      />
     </div>
   );
 }

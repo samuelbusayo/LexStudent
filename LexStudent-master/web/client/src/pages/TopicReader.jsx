@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCourse, useTopics } from '../hooks/useCourses'
 import * as pdfjsLib from 'pdfjs-dist'
 import 'pdfjs-dist/web/pdf_viewer.css'
@@ -104,6 +105,7 @@ export default function TopicReader() {
   const { data: course } = useCourse(courseId)
   const { data: topics } = useTopics(courseId)
   const topic = topics?.find(t => t.id === Number(topicId))
+  const queryClient = useQueryClient()
 
   // Memoize so the reference is stable across renders — otherwise the
   // restore-position effect re-runs constantly and forces the user back
@@ -524,6 +526,14 @@ export default function TopicReader() {
         pagesRead: Math.max(topic.pagesRead || 0, readCount),
         totalPages: visiblePageCount,
       })
+
+      // Refresh planner goals so the daily reading progress bar reflects in real-time.
+      // NOTE: do NOT invalidate ['topics', courseId] here — that gives `topic` a new
+      // reference, which retriggers loadDocument and snaps currentIndex back to the
+      // deep-linked ?page= (or localStorage) value, breaking page advancement and
+      // causing a blank PDF flash. The goals query joins topics on the server, so
+      // it already picks up the latest pages_read on refetch.
+      queryClient.invalidateQueries({ queryKey: ['goals'] })
 
       try {
         localStorage.setItem(storageKey, JSON.stringify({ currentPage, timestamp: Date.now() }))
@@ -948,15 +958,43 @@ export default function TopicReader() {
           pointer-events: none;
         }
 
-        /* Document search highlights */
+        /* PDF search highlight layer — sits between canvas and textLayer */
+        .search-highlight-layer {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 1;
+        }
+        /* Ensure textLayer is above the highlight layer */
+        .textLayer {
+          z-index: 2 !important;
+        }
+
+        /* PDF marker-pen highlight rectangles */
+        .search-highlight-rect {
+          background: rgba(255, 235, 59, 0.45);
+          border-radius: 2px;
+          mix-blend-mode: multiply;
+        }
+        .search-highlight-current {
+          background: rgba(255, 152, 0, 0.55);
+          border-radius: 2px;
+          mix-blend-mode: multiply;
+          box-shadow: 0 0 0 1.5px rgba(245, 124, 0, 0.7);
+        }
+
+        /* DOCX/PPTX inline search highlights (mark elements) */
         .search-match {
-          background: rgba(255, 235, 59, 0.4);
-          border-radius: 1px;
+          background: rgba(255, 235, 59, 0.45);
+          border-radius: 2px;
         }
         .search-match-current {
-          background: rgba(255, 152, 0, 0.6);
-          border-radius: 1px;
-          outline: 2px solid #f57c00;
+          background: rgba(255, 152, 0, 0.55);
+          border-radius: 2px;
+          box-shadow: 0 0 0 1.5px rgba(245, 124, 0, 0.7);
         }
       `}</style>
 

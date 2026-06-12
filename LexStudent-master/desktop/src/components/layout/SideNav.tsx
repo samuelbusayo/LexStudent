@@ -17,7 +17,7 @@ export default function SideNav() {
     <aside className="fixed left-0 top-0 h-screen w-64 z-50 flex flex-col p-gutter bg-surface-container-low shadow-sm">
       <div className="mb-stack-lg">
         <h1 className="font-h2 text-h2 font-bold text-primary mb-unit">LexScholar</h1>
-        <p className="font-body-md text-on-surface-variant opacity-70">Juris Doctor Program</p>
+        <p className="font-body-md text-on-surface-variant opacity-70">Bar Part II</p>
       </div>
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => (

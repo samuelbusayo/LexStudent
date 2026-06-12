@@ -5,6 +5,7 @@ import morgan from "morgan"
 import { initDb } from "./db.js"
 import { seedDatabase, syncCurriculumTopics } from "./seed.js"
 import { seedQuizData } from "./quiz_seed.js"
+import { seedQuizDataProperty } from "./quiz_seed_property.js"
 import coursesRouter from "./routes/courses.js"
 import goalsRouter from "./routes/goals.js"
 import progressRouter from "./routes/progress.js"
@@ -30,6 +31,7 @@ const db = initDb()
 seedDatabase(db)
 syncCurriculumTopics(db)
 seedQuizData(db)
+seedQuizDataProperty(db)
 app.locals.db = db
 
 // Routes

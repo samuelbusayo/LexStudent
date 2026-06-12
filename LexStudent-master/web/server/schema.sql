@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
   avatar TEXT DEFAULT '',
   streak INTEGER DEFAULT 0,
   badge TEXT DEFAULT '',
+  ai_messages_used INTEGER DEFAULT 0,
+  ai_messages_limit INTEGER DEFAULT 5,
+  usage_reset_at TEXT DEFAULT (datetime('now')),
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -101,6 +104,7 @@ CREATE TABLE IF NOT EXISTS heatmap_data (
 CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER DEFAULT 1,
+  feature_key TEXT DEFAULT '',
   title TEXT NOT NULL,
   time TEXT DEFAULT '',
   enabled INTEGER DEFAULT 1,

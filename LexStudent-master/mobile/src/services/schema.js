@@ -133,8 +133,10 @@ CREATE TABLE IF NOT EXISTS cases (
 
 CREATE TABLE IF NOT EXISTS badges (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT UNIQUE,
   name TEXT NOT NULL,
   icon TEXT DEFAULT '',
+  category TEXT DEFAULT 'special',
   earned INTEGER DEFAULT 0,
   description TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now'))

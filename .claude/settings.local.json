@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\mccha\\\\Downloads\\\\LexStudent-master\\\\LexStudent-master\" -Exclude node_modules -Recurse -File | Where-Object { $_.Extension -match '\\\\.\\(html|css|js|jsx|tsx|ts|vue|svelte|json|ejs|pug|hbs\\)$' -and $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "WebSearch"
+    ]
+  }
+}

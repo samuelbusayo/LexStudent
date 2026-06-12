@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getDb } from "../db.js";
+import { safeEvaluate } from "../services/badgeEvaluator.js";
 
 const router = Router();
 
@@ -159,7 +160,8 @@ router.put("/:topicId/summary", (req, res) => {
     "SELECT id, topic_id, user_id, body, created_at, updated_at FROM topic_summaries WHERE topic_id = ?"
   ).get(topicId);
 
-  res.json({ ...summary, body: parseBody(summary?.body) });
+  const newlyEarned = safeEvaluate(db, 1);
+  res.json({ ...summary, body: parseBody(summary?.body), newlyEarnedBadges: newlyEarned });
 });
 
 // ─── Create a highlight (immutable) ───
@@ -175,7 +177,9 @@ router.post("/:topicId/highlight", (req, res) => {
   ).run(topicId, page || 1, paragraph ?? null, anchorText || "", text.trim());
 
   const highlight = db.prepare("SELECT * FROM study_notes WHERE id = ?").get(result.lastInsertRowid);
-  res.status(201).json(highlight);
+  const newlyEarned = safeEvaluate(db, 1);
+
+  res.status(201).json({ ...highlight, newlyEarnedBadges: newlyEarned });
 });
 
 // ─── Legacy: get all notes & highlights for a topic (used by reader) ───

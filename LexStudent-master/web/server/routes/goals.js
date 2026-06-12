@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getDb } from "../db.js";
+import { safeEvaluate } from "../services/badgeEvaluator.js";
 
 const router = Router();
 
@@ -73,13 +74,15 @@ router.put("/occurrences/:id", (req, res) => {
   // Log activity on first completion
   const nowComplete = (updated.status === 'completed' || updated.progress >= 100) &&
                       (occ.status !== 'completed' && occ.progress < 100);
+  let newlyEarned = [];
   if (nowComplete) {
     db.prepare(
       "INSERT INTO activity_log (user_id, type, goal_id, amount, created_at) VALUES (1, 'goal_completed', ?, 1, datetime('now'))"
     ).run(occ.goal_id);
+    newlyEarned = safeEvaluate(db, 1);
   }
 
-  res.json(updated);
+  res.json({ ...updated, newlyEarnedBadges: newlyEarned });
 });
 
 // ── POST create goal + occurrences ──
@@ -121,7 +124,8 @@ router.post("/", (req, res) => {
   }
 
   const goal = db.prepare(GOAL_QUERY + " WHERE g.id = ?").get(goalId);
-  res.status(201).json(enrichGoal(db, goal));
+  const newlyEarned = safeEvaluate(db, 1);
+  res.status(201).json({ ...enrichGoal(db, goal), newlyEarnedBadges: newlyEarned });
 });
 
 // ── PUT update goal definition ──

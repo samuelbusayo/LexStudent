@@ -32,13 +32,20 @@ pub fn run() {
 
                 app_handle.manage(state);
 
-                // Spawn Node.js server sidecar
+                let resource_dir = app_handle
+                    .path()
+                    .resource_dir()
+                    .expect("Failed to resolve resource dir");
+
+                // Spawn Node.js server
+                let server_dir = resource_dir.join("server");
                 let server_port_str = server_port.to_string();
-                spawn_server_sidecar(&app_handle, &server_port_str);
+                spawn_node_server(&server_dir, &server_port_str);
 
                 // Spawn Python AI sidecar
+                let sidecar_dir = resource_dir.join("sidecar");
                 let sidecar_port_str = sidecar_port.to_string();
-                spawn_ai_sidecar(&app_handle, &sidecar_port_str);
+                spawn_python_sidecar(&sidecar_dir, &sidecar_port_str);
             });
 
             Ok(())
@@ -69,50 +76,78 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-fn spawn_server_sidecar(app: &tauri::AppHandle, port: &str) {
-    use tauri_plugin_shell::ShellExt;
-    let shell = app.shell();
+fn spawn_node_server(server_dir: &std::path::Path, port: &str) {
+    let entry = server_dir.join("index.js");
+    let port = port.to_string();
+    let dir = server_dir.to_path_buf();
 
-    match shell
-        .sidecar("binaries/lexscholar-server")
-    {
-        Ok(cmd) => {
-            let cmd = cmd.env("PORT", port);
-            match cmd.spawn() {
-                Ok((_rx, _child)) => {
-                    println!("Node.js server sidecar started on port {}", port);
-                }
-                Err(e) => {
-                    eprintln!("Failed to spawn server sidecar: {}. Server may need to be run separately.", e);
-                }
+    std::thread::spawn(move || {
+        match std::process::Command::new("node")
+            .arg(&entry)
+            .env("PORT", &port)
+            .current_dir(&dir)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => {
+                println!("Node.js server started on port {} (pid {})", port, child.id());
+            }
+            Err(e) => {
+                eprintln!(
+                    "Failed to start Node.js server: {}. Make sure Node.js is installed.",
+                    e
+                );
             }
         }
-        Err(e) => {
-            eprintln!("Server sidecar binary not found: {}. Run the web server separately.", e);
-        }
-    }
+    });
 }
 
-fn spawn_ai_sidecar(app: &tauri::AppHandle, port: &str) {
-    use tauri_plugin_shell::ShellExt;
-    let shell = app.shell();
+fn spawn_python_sidecar(sidecar_dir: &std::path::Path, port: &str) {
+    let entry = sidecar_dir.join("main.py");
+    let port = port.to_string();
+    let dir = sidecar_dir.to_path_buf();
 
-    match shell
-        .sidecar("binaries/lexscholar-ai-sidecar")
-    {
-        Ok(cmd) => {
-            let cmd = cmd.args(["--port", port]);
-            match cmd.spawn() {
-                Ok((_rx, _child)) => {
-                    println!("AI sidecar started on port {}", port);
-                }
-                Err(e) => {
-                    eprintln!("Failed to spawn AI sidecar: {}. AI features may be unavailable.", e);
-                }
+    std::thread::spawn(move || {
+        let python = find_python();
+        match std::process::Command::new(&python)
+            .arg(&entry)
+            .arg("--port")
+            .arg(&port)
+            .current_dir(&dir)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => {
+                println!(
+                    "AI sidecar started on port {} (pid {}, python={})",
+                    port,
+                    child.id(),
+                    python
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "Failed to start AI sidecar: {}. Make sure Python 3.10+ is installed with the required packages.",
+                    e
+                );
             }
         }
-        Err(e) => {
-            eprintln!("AI sidecar binary not found: {}. Run the Python sidecar separately.", e);
+    });
+}
+
+fn find_python() -> String {
+    for name in &["python3", "python"] {
+        if std::process::Command::new(name)
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok()
+        {
+            return name.to_string();
         }
     }
+    "python".to_string()
 }

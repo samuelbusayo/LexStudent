@@ -8,6 +8,13 @@ export function useBadges() {
   })
 }
 
+export function useBadgeAchievements() {
+  return useQuery({
+    queryKey: ['badges', 'achievements'],
+    queryFn: () => api.get('/badges/achievements').then((r) => r.data),
+  })
+}
+
 export function useQuote() {
   return useQuery({
     queryKey: ['quote'],

@@ -104,9 +104,10 @@ export const activities = [
 export const intensities = [4,0,3,5,1,4,5,5,0,0,4,4,4,2,0,0,1,4,5,0,3];
 
 export const reminders = [
-  { id: 1, title: 'Morning Briefing', time: '8:00 AM Daily', enabled: 1 },
-  { id: 2, title: 'Mock Exam Alert', time: '2 days before', enabled: 1 },
-  { id: 3, title: 'Case Study Window', time: 'Weekends only', enabled: 0 }
+  { id: 1, title: 'Daily Reading Goal',    time: 'Notify at 8:00 AM if unread',        enabled: 1 },
+  { id: 2, title: 'Revision Quiz',          time: 'Notify at 6:00 PM',                  enabled: 1 },
+  { id: 3, title: 'AI Study Assistant',     time: 'Daily reminder to ask questions',    enabled: 0 },
+  { id: 4, title: 'Streak Protector',       time: 'Alert if streak at risk',            enabled: 1 },
 ];
 
 export const cases = [
@@ -117,10 +118,58 @@ export const cases = [
 ];
 
 export const badges = [
-  { id: 1, name: '7 Day Streak', icon: 'local_fire_department', earned: 1, description: 'Study 7 days in a row' },
-  { id: 2, name: 'Case Expert', icon: 'menu_book', earned: 1, description: 'Complete 10 case analyses' },
-  { id: 3, name: 'Night Owl', icon: 'dark_mode', earned: 1, description: 'Study past midnight 5 times' },
-  { id: 4, name: 'Locked Achievement', icon: 'lock', earned: 0, description: 'Secret achievement' }
+  // Reading
+  { id:  1, code: 'first_page',         name: 'First Page',         icon: 'menu_book',            category: 'reading',     earned: 0, description: 'Read your very first page.' },
+  { id:  2, code: 'bookworm_1',         name: 'Bookworm I',         icon: 'auto_stories',         category: 'reading',     earned: 0, description: 'Read 50 pages cumulative.' },
+  { id:  3, code: 'bookworm_2',         name: 'Bookworm II',        icon: 'auto_stories',         category: 'reading',     earned: 0, description: 'Read 250 pages cumulative.' },
+  { id:  4, code: 'bookworm_3',         name: 'Bookworm III',       icon: 'auto_stories',         category: 'reading',     earned: 0, description: 'Read 1,000 pages cumulative.' },
+  { id:  5, code: 'topic_master',       name: 'Topic Master',       icon: 'task_alt',             category: 'reading',     earned: 0, description: 'Read 100% of one topic.' },
+  { id:  6, code: 'course_conqueror',   name: 'Course Conqueror',   icon: 'workspace_premium',    category: 'reading',     earned: 0, description: 'Complete every topic in a course.' },
+  { id:  7, code: 'bar_part_ii_scholar',name: 'Bar Part II Scholar',icon: 'school',               category: 'reading',     earned: 0, description: 'Complete all 14 Bar Part II topics.' },
+  { id:  8, code: 'deep_reader',        name: 'Deep Reader',        icon: 'hourglass_top',        category: 'reading',     earned: 0, description: 'Read 30+ pages in a single session.' },
+  { id:  9, code: 'early_bird_1',       name: 'Early Bird I',       icon: 'wb_sunny',             category: 'reading',     earned: 0, description: 'Read once between 5:00am and 8:30am.' },
+  { id: 10, code: 'early_bird_2',       name: 'Early Bird II',      icon: 'wb_sunny',             category: 'reading',     earned: 0, description: 'Log 7 morning reading sessions.' },
+  { id: 11, code: 'early_bird_3',       name: 'Early Bird III',     icon: 'wb_sunny',             category: 'reading',     earned: 0, description: 'Log 30 morning sessions.' },
+  { id: 12, code: 'night_owl_1',        name: 'Night Owl I',        icon: 'dark_mode',            category: 'reading',     earned: 0, description: 'Read once between 9:00pm and 3:00am.' },
+  { id: 13, code: 'night_owl_2',        name: 'Night Owl II',       icon: 'dark_mode',            category: 'reading',     earned: 0, description: 'Log 7 late-night sessions.' },
+  { id: 14, code: 'night_owl_3',        name: 'Night Owl III',      icon: 'dark_mode',            category: 'reading',     earned: 0, description: 'Log 30 late-night sessions.' },
+  // Consistency
+  { id: 15, code: 'steady_1',           name: 'Steady I',           icon: 'local_fire_department',category: 'consistency', earned: 0, description: 'Study 3 days in a row.' },
+  { id: 16, code: 'steady_2',           name: 'Steady II',          icon: 'local_fire_department',category: 'consistency', earned: 0, description: 'Study 7 days in a row.' },
+  { id: 17, code: 'steady_3',           name: 'Steady III',         icon: 'local_fire_department',category: 'consistency', earned: 0, description: 'Study 14 days in a row.' },
+  { id: 18, code: 'devoted',            name: 'Devoted',            icon: 'whatshot',             category: 'consistency', earned: 0, description: 'Study every day for a full month.' },
+  { id: 19, code: 'unbreakable',        name: 'Unbreakable',        icon: 'rocket_launch',        category: 'consistency', earned: 0, description: 'A 100-day streak. Unstoppable.' },
+  // Quiz
+  { id: 20, code: 'first_quiz',         name: 'First Quiz',         icon: 'quiz',                 category: 'quiz',        earned: 0, description: 'Take your first quiz.' },
+  { id: 21, code: 'quiz_apprentice_1',  name: 'Quiz Apprentice I',  icon: 'psychology',           category: 'quiz',        earned: 0, description: 'Complete 5 quiz attempts.' },
+  { id: 22, code: 'quiz_apprentice_2',  name: 'Quiz Apprentice II', icon: 'psychology',           category: 'quiz',        earned: 0, description: 'Complete 25 quiz attempts.' },
+  { id: 23, code: 'quiz_apprentice_3',  name: 'Quiz Apprentice III',icon: 'psychology',           category: 'quiz',        earned: 0, description: 'Complete 100 quiz attempts.' },
+  { id: 24, code: 'sharp_mind',         name: 'Sharp Mind',         icon: 'bolt',                 category: 'quiz',        earned: 0, description: 'Score 100% on any quiz.' },
+  { id: 25, code: 'perfectionist',      name: 'Perfectionist',      icon: 'star',                 category: 'quiz',        earned: 0, description: 'Score 100% across 5 different topics.' },
+  { id: 26, code: 'resilient',          name: 'Resilient',          icon: 'replay',               category: 'quiz',        earned: 0, description: 'Fail a quiz, retake it, and pass.' },
+  { id: 27, code: 'all_topics_master',  name: 'All Topics Master',  icon: 'all_inclusive',        category: 'quiz',        earned: 0, description: 'Pass quizzes for every Bar Part II topic.' },
+  // Engagement
+  { id: 28, code: 'annotator_1',        name: 'Annotator I',        icon: 'highlight',            category: 'engagement',  earned: 0, description: 'Create 10 highlights.' },
+  { id: 29, code: 'annotator_2',        name: 'Annotator II',       icon: 'highlight',            category: 'engagement',  earned: 0, description: 'Create 50 highlights.' },
+  { id: 30, code: 'annotator_3',        name: 'Annotator III',      icon: 'highlight',            category: 'engagement',  earned: 0, description: 'Create 200 highlights.' },
+  { id: 31, code: 'note_taker',         name: 'Note Taker',         icon: 'edit_note',            category: 'engagement',  earned: 0, description: 'Write your first topic summary.' },
+  // AI Chat
+  { id: 32, code: 'ai_curious_mind',    name: 'Curious Mind',       icon: 'lightbulb',            category: 'ai_chat',     earned: 0, description: 'Ask the AI tutor 20 questions.' },
+  { id: 33, code: 'ai_apprentice',      name: 'AI Apprentice',      icon: 'psychology_alt',       category: 'ai_chat',     earned: 0, description: '50 AI requests.' },
+  { id: 34, code: 'ai_scholar',         name: 'AI Scholar',         icon: 'school',               category: 'ai_chat',     earned: 0, description: '100 AI requests.' },
+  { id: 35, code: 'ai_power_user',      name: 'AI Power User',      icon: 'auto_awesome',         category: 'ai_chat',     earned: 0, description: '200 AI requests.' },
+  { id: 36, code: 'ai_maestro',         name: 'AI Maestro',         icon: 'workspace_premium',    category: 'ai_chat',     earned: 0, description: '450 AI requests.' },
+  // Goals
+  { id: 37, code: 'goal_setter',        name: 'Goal Setter',        icon: 'flag',                 category: 'goals',       earned: 0, description: 'Create your first study goal.' },
+  { id: 38, code: 'goal_crusher_1',     name: 'Goal Crusher I',     icon: 'task_alt',             category: 'goals',       earned: 0, description: 'Complete 10 daily goals.' },
+  { id: 39, code: 'goal_crusher_2',     name: 'Goal Crusher II',    icon: 'task_alt',             category: 'goals',       earned: 0, description: 'Complete 50 daily goals.' },
+  { id: 40, code: 'goal_crusher_3',     name: 'Goal Crusher III',   icon: 'task_alt',             category: 'goals',       earned: 0, description: 'Complete 200 daily goals.' },
+  { id: 41, code: 'planner_pro',        name: 'Planner Pro',        icon: 'event_available',      category: 'goals',       earned: 0, description: 'Complete at least one goal every day for a week.' },
+  // Bar Special
+  { id: 42, code: 'welcome_counsel',    name: 'Welcome Counsel',    icon: 'how_to_reg',           category: 'special',     earned: 1, description: 'Welcome aboard, future Bar Counsel.' },
+  { id: 43, code: 'profile_sealed',     name: 'Profile Sealed',     icon: 'verified',             category: 'special',     earned: 0, description: 'Complete all your profile details.' },
+  { id: 44, code: 'campus_pride',       name: 'Campus Pride',       icon: 'location_on',          category: 'special',     earned: 0, description: 'Pick the Law School campus you call home.' },
+  { id: 45, code: 'call_to_bar_ready',  name: 'Call to Bar Ready',  icon: 'gavel',                category: 'special',     earned: 0, description: 'Reach 90% overall progress across the curriculum.' },
 ];
 
 export const dailyQuote = {

@@ -34,9 +34,20 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+function extractBadgesAndNotify(data: any) {
+  if (data === null || data === undefined) return
+  if (Array.isArray(data)) { data.forEach(extractBadgesAndNotify); return }
+  if (typeof data !== 'object') return
+  const codes = data.newlyEarnedBadges
+  if (Array.isArray(codes) && codes.length > 0) {
+    window.dispatchEvent(new CustomEvent('badge:earned', { detail: codes }))
+  }
+}
+
 api.interceptors.response.use(
   (response) => {
     response.data = transformKeys(response.data)
+    extractBadgesAndNotify(response.data)
     return response
   },
   (error) => Promise.reject(error)

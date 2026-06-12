@@ -2,6 +2,8 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
+import { reconcileBadgeCatalogue } from './services/badgeCatalogue.js'
+import { safeEvaluate } from './services/badgeEvaluator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DB_PATH = path.join(__dirname, 'lexstudent.db')
@@ -67,6 +69,56 @@ export function initDb() {
     WHERE date != '' AND date IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM goal_occurrences WHERE goal_id = goals.id)
   `)
+
+  // users: add AI usage tracking columns
+  const userCols = db.prepare("PRAGMA table_info(users)").all()
+  const userColNames = userCols.map(c => c.name)
+  if (!userColNames.includes('ai_messages_used')) {
+    db.exec("ALTER TABLE users ADD COLUMN ai_messages_used INTEGER DEFAULT 0")
+  }
+  if (!userColNames.includes('ai_messages_limit')) {
+    db.exec("ALTER TABLE users ADD COLUMN ai_messages_limit INTEGER DEFAULT 5")
+  }
+  if (!userColNames.includes('usage_reset_at')) {
+    db.exec("ALTER TABLE users ADD COLUMN usage_reset_at TEXT DEFAULT (datetime('now'))")
+  }
+  // users: add profile fields (program, campus)
+  if (!userColNames.includes('program')) {
+    db.exec("ALTER TABLE users ADD COLUMN program TEXT DEFAULT ''")
+  }
+  if (!userColNames.includes('campus')) {
+    db.exec("ALTER TABLE users ADD COLUMN campus TEXT DEFAULT ''")
+  }
+
+  // ── BADGES catalogue migration ──
+  const badgeCols = db.prepare("PRAGMA table_info(badges)").all().map(c => c.name)
+  if (!badgeCols.includes('code'))        db.exec("ALTER TABLE badges ADD COLUMN code TEXT")
+  if (!badgeCols.includes('category'))    db.exec("ALTER TABLE badges ADD COLUMN category TEXT DEFAULT ''")
+  if (!badgeCols.includes('tier'))        db.exec("ALTER TABLE badges ADD COLUMN tier INTEGER DEFAULT 0")
+  if (!badgeCols.includes('criteria'))    db.exec("ALTER TABLE badges ADD COLUMN criteria TEXT DEFAULT '{}'")
+  if (!badgeCols.includes('target'))      db.exec("ALTER TABLE badges ADD COLUMN target INTEGER DEFAULT 1")
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_badges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL DEFAULT 1,
+      badge_code TEXT NOT NULL,
+      progress INTEGER DEFAULT 0,
+      earned_at TEXT,
+      UNIQUE(user_id, badge_code)
+    )
+  `)
+
+  // milestones: new fields
+  const msCols = db.prepare("PRAGMA table_info(milestones)").all().map(c => c.name)
+  if (!msCols.includes('category'))     db.exec("ALTER TABLE milestones ADD COLUMN category TEXT DEFAULT 'custom'")
+  if (!msCols.includes('icon'))         db.exec("ALTER TABLE milestones ADD COLUMN icon TEXT DEFAULT 'flag'")
+  if (!msCols.includes('completed_at')) db.exec("ALTER TABLE milestones ADD COLUMN completed_at TEXT")
+
+  // Reconcile the canonical badge catalogue + backfill progress for the
+  // default user so historical activity counts retroactively.
+  reconcileBadgeCatalogue(db)
+  safeEvaluate(db, 1)
 
   return db
 }

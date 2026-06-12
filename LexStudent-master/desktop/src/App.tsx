@@ -25,6 +25,7 @@ import TopicMaterial from './pages/TopicMaterial'
 import SummaryView from './pages/SummaryView'
 import RevisionSession from './pages/RevisionSession'
 import QuizFlow from './pages/QuizFlow'
+import BadgeToastListener from './components/badges/BadgeToastListener'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -139,6 +140,7 @@ export default function App() {
           <AppInit>
             <AppRoutes />
           </AppInit>
+          <BadgeToastListener />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

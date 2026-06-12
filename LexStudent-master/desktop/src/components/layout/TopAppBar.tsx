@@ -32,7 +32,7 @@ export default function TopAppBar() {
         <div className="flex items-center gap-3 ml-4">
           <div className="text-right hidden lg:block">
             <p className="font-body-md font-bold text-primary">{displayName}</p>
-            <p className="text-xs text-on-surface-variant">LPC Student</p>
+            <p className="text-xs text-on-surface-variant">Bar Part II</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-primary-container border border-outline-variant flex items-center justify-center text-white text-sm font-bold">
             {initials}

@@ -2,37 +2,35 @@
 const curriculumTopics = {
   // 5 = Property Law Practice
   5: [
-    'WK 3: General Overview and Applicable laws',
-    'WK 4: Deeds and Power of Attorney',
-    'WK 5: Sale of Land 1',
-    'WK 6: Sale of Land 2',
-    'WK 7: Leases and Tenancies Part 1',
-    'WK 8: Leases and Covenants 2',
-    'WK 9: Mortgages',
-    'WK 10: Mortgages 2',
-    'WK 11: Land Registration law Lagos and taxation in property law',
-    'Wk 12: Wills and Codicils I',
-    'Wk 13: Wills and Codicils II',
-    'Wk 14: Probate practice',
-    'Wk 15: Personal Representatives and Assent',
+    'WK 3-4: Overview of Property Law and Deed',
+    'WK 5: Power of Attorney',
+    'WK 6-7: Sale of Land',
+    'WK 9-10: Leases I & II',
+    'WK 11-13: Mortgages 1, 2 & 3',
+    'WK 14: Billing and Accounting',
+    'WK 15-17: Wills and Codicils I, II & III',
+    'WK 18-19: Probate Practice, Assent and Personal Representatives',
+    'WK 20: Property Law Taxation',
   ],
-  // 3 = Civil Litigation
+   // 3 = Civil Litigation
   3: [
     'WK 3: General Overview, Introductory matters and Courts with Civil Jurisdiction',
     'WK 4: Parties to a civil suit',
     'WK 5: Institution of action in Magistrate Court',
     'WK 6: Institution of action in High Court',
     'WK 7: Interlocutory application',
-    'WK 8: Summary Judgement',
+    'WK 8: Default and Summary Judgment Procedure',
     'WK 9: Pleadings',
-    'Wk 10: Pre trial Proceedings, trial preparation and Evidence',
-    'Wk 11: Trial and Examination of Witnesses',
-    'Wk 12: Closing address, Judgement and Enforcement of Judgement',
-    'Wk 13: Applications pending Appeals and Appeals',
-    'Wk 14: Recovery of Premises',
-    'Wk 15: Election Petition',
-    'Wk 16: Matrimonial Causes',
-    'Wk 17: Fundamental Right Enforcement',
+    'WK 10: Pre-trial Issues and Pre-trial Proceedings',
+    'WK 11: Trial Preparation and Evidence',
+    'WK 12: Trial, Examination of Witnesses',
+    'WK 13: Closing Address and Judgment',
+    'WK 14: Enforcement of Judgment and Interlocutory Applications Pending Appeal',
+    'WK 15: Civil Appeals',
+    'WK 16: Recovery of Premises',
+    'WK 17: Election Petition',
+    'WK 18: Matrimonial Proceedings',
+    'WK 19: Fundamental Rights Enforcement',
   ],
   // 1 = Professional Ethics (Professional Ethics and Skills)
   1: [
@@ -75,20 +73,18 @@ const curriculumTopics = {
   ],
   // 4 = Corporate Law Practice
   4: [
-    'WK 3: Overview of legal framework and regulatory bodies on corporate law practice in Nigeria',
-    'WK 4: Formation and Registration of Business names, Partnerships and Incorporated Trustees',
-    'WK 5: Post-incorporation matters in Business and Non-Business organizations',
-    'WK 6: Foreign Participation and Corporate contracts',
-    'WK 7: Corporate Governance 1',
-    'WK 8: Corporate Governance 2',
-    'WK 9: Financial statement, audits, and annual returns',
-    'Wk 10: Majority Rule, Minority Protection and Investigation of Companies',
-    'Wk 11: Equity Capital and Collective Investment Schemes',
-    'Wk 12: Corporate finance II Debt capital - bonds and debentures',
-    'Wk 13: Corporate Restructuring I',
-    'Wk 14: Corporate Restructuring II',
-    'Wk 15: Corporate Insolvency',
-    'Wk 16: Introduction to intellectual property rights, registration, intellectual property of generative artificial intelligence',
+    'WK 3: Legal Regime and Regulatory Bodies in Corporate Practice',
+    'WK 4-6: Choice of Business/Non-Business Organisation and Registration Documents',
+    'WK 7: Promotion of Companies and Pre-incorporation Contracts',
+    'WK 8: Foreign Participation in Nigerian Economy',
+    'WK 9: Post Incorporation Matters',
+    'WK 10-14: Corporate Governance I (Meetings, Directors, and Corporate Administration)',
+    'WK 10-14: Corporate Governance II (Meetings, Financial Statements, and Minority Protection)',
+    'WK 15-16: Company Securities I (Shares, Allotment, and Transfer)',
+    'WK 15-16: Company Securities II (Debentures, Charges, Capital Market, and Bonds)',
+    'WK 17-18: Corporate Restructuring (Mergers, Acquisitions, and Takeovers)',
+    'WK 19: Companies Proceedings and Investment Disputes Resolution',
+    'WK 20: Winding Up and Dissolution of Business/Non-Business Organisations',
   ],
 };
 
@@ -97,12 +93,12 @@ export function seedDatabase(db) {
   if (count.count > 0) return // Already seeded
 
   const insert = db.transaction(() => {
-    // Users
+    // Users — default account with no fake stats
     db.prepare(`INSERT INTO users (id, name, email, password_hash, streak, badge) VALUES (1, ?, ?, ?, ?, ?)`).run(
-      'Alex Morgan', 'alex@example.com', '$2b$10$re6plNKw5nFzRlzZeMBhSuX007ln2q9MglYdlyWbwXX0Xu26o353m', 12, 'Juris Master'
+      'Alex Morgan', 'alex@example.com', '$2b$10$re6plNKw5nFzRlzZeMBhSuX007ln2q9MglYdlyWbwXX0Xu26o353m', 0, ''
     )
-    // Reset sequence
-    db.prepare(`UPDATE sqlite_sequence SET seq = 1 WHERE name = 'users'`).run()
+    // Reset sequence — INSERT OR REPLACE works even when row doesn't exist yet
+    db.prepare(`INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES ('users', 1)`).run()
 
     // Courses
     const courses = [
@@ -126,82 +122,14 @@ export function seedDatabase(db) {
       }
     }
 
-    // Goals table left empty — users create goals via the modal
-
-    // Progress overall
-    db.prepare(`INSERT INTO progress_overall (user_id, overall, streak, badge) VALUES (1, 48, 12, 'Juris Master')`).run()
-
-    // Progress activities
-    const activities = [
-      [1, 'READ', 'Donoghue v Stevenson Analysis', 'completed'],
-      [2, 'PENDING', 'Vicarious Liability Lecture', 'pending'],
-      [3, 'UPCOMING', 'Mock Exam: Equity & Trusts', 'upcoming'],
-    ]
-    const insertActivity = db.prepare(`INSERT INTO progress_activities (id, type, title, status) VALUES (?, ?, ?, ?)`)
-    activities.forEach(a => insertActivity.run(...a))
-
-    // Heatmap
-    const intensities = [4,0,3,5,1,4,5,5,0,0,4,4,4,2,0,0,1,4,5,0,3]
-    const insertHeat = db.prepare(`INSERT INTO heatmap_data (day_index, intensity) VALUES (?, ?)`)
-    intensities.forEach((val, i) => insertHeat.run(i, val))
-
-    // Reminders
-    const reminders = [
-      [1, 'Morning Briefing', '8:00 AM Daily', 1],
-      [2, 'Mock Exam Alert', '2 days before', 1],
-      [3, 'Case Study Window', 'Weekends only', 0],
-    ]
-    const insertReminder = db.prepare(`INSERT INTO reminders (id, title, time, enabled) VALUES (?, ?, ?, ?)`)
-    reminders.forEach(r => insertReminder.run(...r))
-
-    // Summaries table left empty — Personal Summaries now sourced from study_notes
-
-    // Cases
-    const cases = [
-      [1, 'Donoghue v Stevenson', '[1932] UKHL 100', 1932, 'The "snail in the bottle" case established the modern law of negligence and the neighbor principle.', '["Negligence","Tort Law"]', 1, 1],
-      [2, 'Marbury v Madison', '5 U.S. (1 Cranch) 137', 1803, 'Established the principle of judicial review in the United States.', '["Constitutional"]', 0, 0],
-      [3, 'Salomon v Salomon', '[1897] AC 22', 1897, 'Upheld the doctrine of separate legal personality for companies.', '["Company Law"]', 0, 0],
-      [4, 'Miranda v Arizona', '384 U.S. 436', 1966, 'Specified the Miranda rights that must be read to criminal suspects.', '["Criminal"]', 0, 0],
-    ]
-    const insertCase = db.prepare(`INSERT INTO cases (id, name, citation, year, description, tags, is_featured, bookmarked) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    cases.forEach(c => insertCase.run(...c))
-
-    // Badges
-    const badges = [
-      [1, '7 Day Streak', 'local_fire_department', 1, 'Study 7 days in a row'],
-      [2, 'Case Expert', 'menu_book', 1, 'Complete 10 case analyses'],
-      [3, 'Night Owl', 'dark_mode', 1, 'Study past midnight 5 times'],
-      [4, 'Locked Achievement', 'lock', 0, 'Secret achievement'],
-    ]
-    const insertBadge = db.prepare(`INSERT INTO badges (id, name, icon, earned, description) VALUES (?, ?, ?, ?, ?)`)
-    badges.forEach(b => insertBadge.run(...b))
+    // Goals, progress, heatmap, activity_log, reminders, countdowns, cases
+    // — all left empty so only real user data populates them.
 
     // Daily quotes
     db.prepare(`INSERT INTO daily_quotes (id, text, author) VALUES (1, ?, ?)`).run(
       'The Rule of Law requires that people should be able to rely on the law as a guide to their future conduct.',
       'Lord Bingham'
     )
-
-    // Activity log (recent study events for demo streak/heatmap)
-    const now = new Date()
-    const activityRows = []
-    for (let daysAgo = 0; daysAgo < 14; daysAgo++) {
-      if (daysAgo === 5 || daysAgo === 10) continue // gap days to break streak demo
-      const d = new Date(now)
-      d.setDate(d.getDate() - daysAgo)
-      const dateStr = d.toISOString().slice(0, 19).replace('T', ' ')
-      const count = daysAgo === 0 ? 3 : Math.floor(Math.random() * 4) + 1
-      for (let j = 0; j < count; j++) {
-        activityRows.push(['page_read', 1 + (daysAgo % 9), null, 2 + j, dateStr])
-      }
-    }
-    const insertActivity2 = db.prepare(
-      `INSERT INTO activity_log (type, topic_id, goal_id, amount, created_at) VALUES (?, ?, ?, ?, ?)`
-    )
-    activityRows.forEach(r => insertActivity2.run(...r))
-
-    // Countdown
-    db.prepare(`INSERT INTO countdowns (id, title, days_remaining) VALUES (1, 'Bar Finals', 42)`).run()
   })
 
   insert()

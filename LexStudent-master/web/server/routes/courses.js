@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import { getDb } from "../db.js";
 import { getStudiedPages } from "../helpers/studiedPages.js";
+import { safeEvaluate } from "../services/badgeEvaluator.js";
 
 const router = Router();
 
@@ -92,14 +93,27 @@ router.put("/:courseId/topics/:topicId/progress", (req, res) => {
   db.prepare("UPDATE topics SET pages_read = ?, updated_at = datetime('now') WHERE id = ? AND course_id = ?")
     .run(pagesRead, req.params.topicId, req.params.courseId);
 
+  let newlyEarned = [];
   if (delta > 0) {
     db.prepare(
       `INSERT INTO activity_log (user_id, type, topic_id, amount, created_at) VALUES (1, 'page_read', ?, ?, datetime('now'))`
     ).run(oldTopic.id, delta);
+
+    // If this update just completed the topic, log a topic_completed event
+    const updated = db.prepare("SELECT pages_read, total_pages FROM topics WHERE id = ?").get(req.params.topicId);
+    const wasComplete = oldTopic.total_pages > 0 && oldTopic.pages_read >= oldTopic.total_pages;
+    const isComplete  = updated.total_pages > 0 && updated.pages_read >= updated.total_pages;
+    if (isComplete && !wasComplete) {
+      db.prepare(
+        `INSERT INTO activity_log (user_id, type, topic_id, amount, created_at) VALUES (1, 'topic_completed', ?, 1, datetime('now'))`
+      ).run(oldTopic.id);
+    }
+
+    newlyEarned = safeEvaluate(db, 1);
   }
 
   const topic = db.prepare("SELECT * FROM topics WHERE id = ?").get(req.params.topicId);
-  res.json(topic);
+  res.json({ ...topic, newlyEarnedBadges: newlyEarned });
 });
 
 router.post("/:courseId/topics", (req, res) => {

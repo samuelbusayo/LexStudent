@@ -3,30 +3,61 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 export default function useDocumentSearch({ pdfWrapperRef, docxContainerRef, pptxContainerRef, fileType, currentPage }) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [matches, setMatches] = useState([])
+  const [matchRects, setMatchRects] = useState([])
   const [currentMatchIndex, setCurrentMatchIndex] = useState(-1)
-  const marksRef = useRef([])
+  const highlightLayerRef = useRef(null)
+
+  const isPdf = fileType?.includes('pdf') || fileType === 'pdf'
 
   const getContainer = useCallback(() => {
-    if (fileType?.includes('pdf') || fileType === 'pdf') return pdfWrapperRef?.current
+    if (isPdf) return pdfWrapperRef?.current
     if (fileType?.includes('docx') || fileType?.includes('doc')) return docxContainerRef?.current
     if (fileType?.includes('pptx')) return pptxContainerRef?.current
     return null
-  }, [fileType, pdfWrapperRef, docxContainerRef, pptxContainerRef])
+  }, [fileType, isPdf, pdfWrapperRef, docxContainerRef, pptxContainerRef])
+
+  // Ensure a highlight layer exists between the canvas and text layer (PDF only)
+  const ensureHighlightLayer = useCallback(() => {
+    const wrapper = pdfWrapperRef?.current
+    if (!wrapper || !isPdf) return null
+
+    let layer = highlightLayerRef.current
+    if (layer && layer.parentNode === wrapper) return layer
+
+    layer = document.createElement('div')
+    layer.className = 'search-highlight-layer'
+    // Insert before the textLayer so highlights sit between canvas and text
+    const textLayer = wrapper.querySelector('.textLayer')
+    if (textLayer) {
+      wrapper.insertBefore(layer, textLayer)
+    } else {
+      wrapper.appendChild(layer)
+    }
+    highlightLayerRef.current = layer
+    return layer
+  }, [pdfWrapperRef, isPdf])
 
   const clearHighlights = useCallback(() => {
-    for (const mark of marksRef.current) {
-      const parent = mark.parentNode
-      if (parent) {
-        const text = document.createTextNode(mark.textContent)
-        parent.replaceChild(text, mark)
-        parent.normalize()
+    // PDF: remove highlight rectangles
+    if (highlightLayerRef.current) {
+      highlightLayerRef.current.innerHTML = ''
+    }
+    // DOCX/PPTX: remove mark wrappers
+    const container = getContainer()
+    if (container && !isPdf) {
+      const marks = container.querySelectorAll('mark.search-match')
+      for (const mark of marks) {
+        const parent = mark.parentNode
+        if (parent) {
+          const text = document.createTextNode(mark.textContent)
+          parent.replaceChild(text, mark)
+          parent.normalize()
+        }
       }
     }
-    marksRef.current = []
-    setMatches([])
+    setMatchRects([])
     setCurrentMatchIndex(-1)
-  }, [])
+  }, [getContainer, isPdf])
 
   const applySearch = useCallback((searchQuery) => {
     clearHighlights()
@@ -35,6 +66,80 @@ export default function useDocumentSearch({ pdfWrapperRef, docxContainerRef, ppt
     const container = getContainer()
     if (!container) return
 
+    if (isPdf) {
+      applyPdfSearch(searchQuery, container)
+    } else {
+      applyDomSearch(searchQuery, container)
+    }
+  }, [getContainer, clearHighlights, isPdf])
+
+  // PDF search: find matches in textLayer spans, then create positioned highlight rects
+  const applyPdfSearch = useCallback((searchQuery, wrapper) => {
+    const highlightLayer = ensureHighlightLayer()
+    if (!highlightLayer) return
+
+    const textLayer = wrapper.querySelector('.textLayer')
+    if (!textLayer) return
+
+    const spans = textLayer.querySelectorAll('span')
+    const lowerQuery = searchQuery.toLowerCase()
+    const allRects = []
+
+    for (const span of spans) {
+      const text = span.textContent
+      const lowerText = text.toLowerCase()
+      let searchFrom = 0
+
+      while (true) {
+        const idx = lowerText.indexOf(lowerQuery, searchFrom)
+        if (idx === -1) break
+
+        // Use Range API to get the exact bounding rect of the matched substring
+        const textNode = span.firstChild
+        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+          searchFrom = idx + 1
+          continue
+        }
+
+        try {
+          const range = document.createRange()
+          range.setStart(textNode, idx)
+          range.setEnd(textNode, Math.min(idx + searchQuery.length, text.length))
+          const rect = range.getBoundingClientRect()
+          const wrapperRect = wrapper.getBoundingClientRect()
+
+          // Position relative to the wrapper
+          const highlightDiv = document.createElement('div')
+          highlightDiv.className = 'search-highlight-rect'
+          highlightDiv.style.position = 'absolute'
+          highlightDiv.style.left = `${rect.left - wrapperRect.left}px`
+          highlightDiv.style.top = `${rect.top - wrapperRect.top}px`
+          highlightDiv.style.width = `${rect.width}px`
+          highlightDiv.style.height = `${rect.height}px`
+          highlightDiv.style.pointerEvents = 'none'
+
+          highlightLayer.appendChild(highlightDiv)
+          allRects.push(highlightDiv)
+
+          range.detach()
+        } catch (e) {
+          // Range error — skip this match
+        }
+
+        searchFrom = idx + 1
+      }
+    }
+
+    setMatchRects(allRects)
+    if (allRects.length > 0) {
+      setCurrentMatchIndex(0)
+      allRects[0].classList.add('search-highlight-current')
+      allRects[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [ensureHighlightLayer])
+
+  // DOCX/PPTX search: wrap matches in <mark> elements (unchanged approach)
+  const applyDomSearch = useCallback((searchQuery, container) => {
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => {
         if (node.parentElement?.closest('.search-match')) return NodeFilter.FILTER_REJECT
@@ -89,34 +194,33 @@ export default function useDocumentSearch({ pdfWrapperRef, docxContainerRef, ppt
       parent.replaceChild(frag, textNode)
     }
 
-    marksRef.current = newMarks
-    setMatches(newMarks)
+    setMatchRects(newMarks)
     if (newMarks.length > 0) {
       setCurrentMatchIndex(0)
       newMarks[0].classList.add('search-match-current')
       newMarks[0].scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
-  }, [getContainer, clearHighlights])
+  }, [])
 
   const goNext = useCallback(() => {
-    if (matches.length === 0) return
-    const prev = matches[currentMatchIndex]
-    if (prev) prev.classList.remove('search-match-current')
-    const next = (currentMatchIndex + 1) % matches.length
+    if (matchRects.length === 0) return
+    const prev = matchRects[currentMatchIndex]
+    if (prev) prev.classList.remove(isPdf ? 'search-highlight-current' : 'search-match-current')
+    const next = (currentMatchIndex + 1) % matchRects.length
     setCurrentMatchIndex(next)
-    matches[next].classList.add('search-match-current')
-    matches[next].scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [matches, currentMatchIndex])
+    matchRects[next].classList.add(isPdf ? 'search-highlight-current' : 'search-match-current')
+    matchRects[next].scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [matchRects, currentMatchIndex, isPdf])
 
   const goPrev = useCallback(() => {
-    if (matches.length === 0) return
-    const prev = matches[currentMatchIndex]
-    if (prev) prev.classList.remove('search-match-current')
-    const next = (currentMatchIndex - 1 + matches.length) % matches.length
+    if (matchRects.length === 0) return
+    const prev = matchRects[currentMatchIndex]
+    if (prev) prev.classList.remove(isPdf ? 'search-highlight-current' : 'search-match-current')
+    const next = (currentMatchIndex - 1 + matchRects.length) % matchRects.length
     setCurrentMatchIndex(next)
-    matches[next].classList.add('search-match-current')
-    matches[next].scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [matches, currentMatchIndex])
+    matchRects[next].classList.add(isPdf ? 'search-highlight-current' : 'search-match-current')
+    matchRects[next].scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [matchRects, currentMatchIndex, isPdf])
 
   const open = useCallback(() => setIsOpen(true), [])
   const close = useCallback(() => {
@@ -127,7 +231,8 @@ export default function useDocumentSearch({ pdfWrapperRef, docxContainerRef, ppt
 
   const reapplySearch = useCallback(() => {
     if (isOpen && query.length >= 2) {
-      setTimeout(() => applySearch(query), 100)
+      // For PDF, the highlight layer is recreated on page render, so delay slightly
+      setTimeout(() => applySearch(query), 150)
     }
   }, [isOpen, query, applySearch])
 
@@ -144,13 +249,22 @@ export default function useDocumentSearch({ pdfWrapperRef, docxContainerRef, ppt
     reapplySearch()
   }, [currentPage])
 
+  // Cleanup highlight layer on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightLayerRef.current && highlightLayerRef.current.parentNode) {
+        highlightLayerRef.current.parentNode.removeChild(highlightLayerRef.current)
+      }
+    }
+  }, [])
+
   return {
     isOpen,
     query,
     setQuery,
-    matches,
+    matchRects,
     currentMatchIndex,
-    totalMatches: matches.length,
+    totalMatches: matchRects.length,
     open,
     close,
     goNext,

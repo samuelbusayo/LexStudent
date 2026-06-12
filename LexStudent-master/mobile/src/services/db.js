@@ -249,8 +249,10 @@ async function seedDatabaseNative(db) {
   }
 
   for (const b of badges) {
-    await db.run('INSERT INTO badges (id, name, icon, earned, description) VALUES (?, ?, ?, ?, ?)', 
-      [b.id, b.name, b.icon, b.earned, b.description]);
+    await db.run(
+      'INSERT OR IGNORE INTO badges (id, code, name, icon, category, earned, description) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [b.id, b.code, b.name, b.icon, b.category, b.earned, b.description]
+    );
   }
 
   await db.run('INSERT INTO daily_quotes (id, text, author) VALUES (1, ?, ?)', 
@@ -327,7 +329,11 @@ export async function initDbConnection() {
       
       // Execute schema
       await db.execute(schemaSQL);
-      
+
+      // Migrate: add code/category columns to badges if missing
+      try { await db.run("ALTER TABLE badges ADD COLUMN code TEXT") } catch {}
+      try { await db.run("ALTER TABLE badges ADD COLUMN category TEXT DEFAULT 'special'") } catch {}
+
       // Seed data
       await seedDatabaseNative(db);
       
@@ -1329,9 +1335,14 @@ export async function toggleBookmarkCase(id) {
 export async function getBadges() {
   await initDbConnection();
   if (useNative) {
-    const res = await dbInstance.query('SELECT * FROM badges ORDER BY id');
+    const res = await dbInstance.query('SELECT id, code, name, icon, category, earned, description FROM badges ORDER BY id');
     return transformKeys(res.values || []);
   } else {
+    // Refresh mock badges if they're still the old 4-badge set
+    if (mockDb.badges.length <= 4) {
+      mockDb.badges = [...badges];
+      saveMockDb();
+    }
     return transformKeys(mockDb.badges);
   }
 }

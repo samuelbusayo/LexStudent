@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getDb } from "../db.js";
+import { safeEvaluate } from "../services/badgeEvaluator.js";
 
 const router = Router();
 
@@ -218,6 +219,8 @@ router.post("/attempts/:id/complete", (req, res) => {
     time_taken_seconds: answerMap[q.id] ? answerMap[q.id].time_taken_seconds : null,
   }));
 
+  const newlyEarned = safeEvaluate(db, 1);
+
   res.json({
     attempt_id: attemptId,
     correct_count: correctCount,
@@ -226,6 +229,7 @@ router.post("/attempts/:id/complete", (req, res) => {
     rating,
     scenarios,
     questions: review,
+    newlyEarnedBadges: newlyEarned,
   });
 });
 

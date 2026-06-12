@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import useAiChat from '../../hooks/useAiChat'
+import useSubscription from '../../hooks/useSubscription'
 
 interface Source {
   chunkId: number
@@ -13,14 +14,69 @@ interface Message {
   content: string
   sources: Source[]
   streaming?: boolean
+  status?: string
 }
 
-function ChatMessage({ message, onPageClick }: { message: Message; onPageClick: (page: number) => void }) {
+function ChatMessage({ message, onPageClick, onEdit, onRetry, isLoading }: {
+  message: Message
+  onPageClick: (page: number) => void
+  onEdit: (id: string | number, content: string) => void
+  onRetry: (id: string | number) => void
+  isLoading: boolean
+}) {
   const isUser = message.role === 'user'
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(message.content)
+  const editRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (isEditing && editRef.current) {
+      editRef.current.focus()
+      editRef.current.style.height = 'auto'
+      editRef.current.style.height = editRef.current.scrollHeight + 'px'
+    }
+  }, [isEditing])
+
+  const handleEditSubmit = () => {
+    if (!editText.trim() || editText.trim() === message.content) {
+      setIsEditing(false)
+      return
+    }
+    onEdit(message.id, editText.trim())
+    setIsEditing(false)
+  }
+
+  if (isUser && isEditing) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] w-full">
+          <textarea
+            ref={editRef}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEditSubmit() }
+              if (e.key === 'Escape') setIsEditing(false)
+            }}
+            className="w-full bg-surface-container-low border border-primary/40 rounded-xl px-3 py-2 text-sm font-body text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary"
+            style={{ minHeight: '36px' }}
+          />
+          <div className="flex justify-end gap-1.5 mt-1">
+            <button onClick={() => setIsEditing(false)} className="text-[10px] px-2 py-1 text-on-surface-variant hover:text-on-surface rounded transition-colors">
+              Cancel
+            </button>
+            <button onClick={handleEditSubmit} className="text-[10px] px-2 py-1 bg-primary-container text-white rounded transition-colors hover:opacity-90">
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+    <div className={`group flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed relative ${
         isUser
           ? 'bg-primary-container text-white rounded-br-sm'
           : 'bg-surface-container text-on-surface rounded-bl-sm'
@@ -28,6 +84,9 @@ function ChatMessage({ message, onPageClick }: { message: Message; onPageClick: 
         <div className="whitespace-pre-wrap break-words">{message.content}</div>
         {message.streaming && (
           <span className="inline-block w-1.5 h-4 bg-current opacity-60 animate-pulse ml-0.5 align-middle" />
+        )}
+        {message.status === 'cancelled' && (
+          <span className="block text-[10px] opacity-60 mt-1 italic">Generation stopped</span>
         )}
         {!isUser && message.sources?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-outline-variant/20">
@@ -42,6 +101,24 @@ function ChatMessage({ message, onPageClick }: { message: Message; onPageClick: 
             ))}
           </div>
         )}
+        {isUser && !isLoading && (
+          <button
+            onClick={() => { setEditText(message.content); setIsEditing(true) }}
+            className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-on-surface-variant hover:text-on-surface rounded"
+            title="Edit message"
+          >
+            <span className="material-symbols-outlined text-[14px]">edit</span>
+          </button>
+        )}
+        {!isUser && message.status === 'error' && (
+          <button
+            onClick={() => onRetry(message.id)}
+            className="mt-1.5 text-[10px] px-2 py-1 bg-error/10 text-error rounded hover:bg-error/20 transition-colors flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[12px]">refresh</span>
+            Retry
+          </button>
+        )}
       </div>
     </div>
   )
@@ -52,7 +129,13 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const { messages, isLoading, error, aiStatus, sendMessage, clearConversation } = useAiChat(topicId)
+  const {
+    messages, isLoading, error, aiStatus,
+    sendMessage, stopGeneration, editMessage, retryMessage, clearConversation,
+  } = useAiChat(topicId)
+  const { isPremium, messagesUsed, messagesLimit } = useSubscription()
+
+  const isLimitReached = !isPremium && messagesUsed >= messagesLimit
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -83,6 +166,9 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
       >
         <span className="material-symbols-outlined text-xl">smart_toy</span>
         <span className="font-button text-sm">Ask AI</span>
+        {!isPremium && messagesUsed > 0 && (
+          <span className="text-[10px] opacity-75">{messagesLimit - messagesUsed} left</span>
+        )}
       </button>
     )
   }
@@ -94,12 +180,16 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary-container text-lg">smart_toy</span>
           <div>
-            <h3 className="font-h3 text-sm text-primary-container">AI Study Assistant</h3>
+            <h3 className="font-h3 text-sm text-primary-container">
+              AI Study Assistant
+              {isPremium && <span className="ml-1.5 text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold align-middle">PRO</span>}
+            </h3>
             <span className="text-[10px] text-on-surface-variant">
               {aiStatus?.indexStatus === 'completed' ? `${aiStatus.totalChunks} chunks indexed`
                 : aiStatus?.indexStatus === 'processing' ? 'Indexing...'
                 : aiStatus?.indexStatus === 'not_indexed' ? 'Material not indexed'
                 : 'Ready'}
+              {!isPremium && <span className="ml-1.5 text-on-surface-variant/60">({messagesUsed}/{messagesLimit} msgs)</span>}
             </span>
           </div>
         </div>
@@ -138,44 +228,60 @@ export default function AiChatPanel({ topicId, onNavigateToPage }: { topicId: st
           </div>
         )}
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} onPageClick={onNavigateToPage} />
+          <ChatMessage key={msg.id} message={msg} onPageClick={onNavigateToPage} onEdit={editMessage} onRetry={retryMessage} isLoading={isLoading} />
         ))}
         {error && (
-          <div className="text-xs text-error bg-error-container/20 rounded-lg px-3 py-2 border border-error/20">
-            {error}
-          </div>
+          <div className="text-xs text-error bg-error-container/20 rounded-lg px-3 py-2 border border-error/20">{error}</div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
       <div className="p-3 border-t border-outline-variant/30 flex-shrink-0">
-        <div className="flex items-end gap-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question..."
-            rows={1}
-            className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-body text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 placeholder:text-on-surface-variant/50 max-h-20"
-            style={{ minHeight: '36px' }}
-            onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
-              const target = e.currentTarget
-              target.style.height = 'auto'
-              target.style.height = Math.min(target.scrollHeight, 80) + 'px'
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="p-2 bg-primary-container text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
+        {isLimitReached ? (
+          <a
+            href="/subscription"
+            className="block w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-bold hover:bg-amber-100 transition-colors text-center"
           >
-            <span className="material-symbols-outlined text-lg">
-              {isLoading ? 'hourglass_top' : 'send'}
-            </span>
-          </button>
-        </div>
+            Upgrade to Premium
+          </a>
+        ) : (
+          <div className="flex items-end gap-2">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask a question..."
+              rows={1}
+              disabled={isLoading}
+              className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 text-sm font-body text-on-surface resize-none outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 placeholder:text-on-surface-variant/50 max-h-20"
+              style={{ minHeight: '36px' }}
+              onInput={(e: React.FormEvent<HTMLTextAreaElement>) => {
+                const target = e.currentTarget
+                target.style.height = 'auto'
+                target.style.height = Math.min(target.scrollHeight, 80) + 'px'
+              }}
+            />
+            {isLoading ? (
+              <button
+                onClick={stopGeneration}
+                className="p-2 bg-error/90 text-white rounded-xl hover:bg-error transition-colors flex-shrink-0"
+                title="Stop generation"
+              >
+                <span className="material-symbols-outlined text-lg">stop</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                className="p-2 bg-primary-container text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
+              >
+                <span className="material-symbols-outlined text-lg">send</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

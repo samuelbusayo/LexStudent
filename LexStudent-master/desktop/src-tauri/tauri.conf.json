@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -36,10 +36,22 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/lexscholar-server",
-      "binaries/lexscholar-ai-sidecar"
-    ],
+    "resources": {
+      "../sidecar/*.py": "sidecar/",
+      "../sidecar/requirements.txt": "sidecar/",
+      "../../server/*.js": "server/",
+      "../../server/package.json": "server/",
+      "../../server/schema.sql": "server/",
+      "../../server/seed.js": "server/",
+      "../../server/.env.example": "server/",
+      "../../server/routes/*.js": "server/routes/",
+      "../../server/node_modules/**/*": "server/node_modules/"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
     "macOS": {
       "entitlements": "entitlements.plist"
     }

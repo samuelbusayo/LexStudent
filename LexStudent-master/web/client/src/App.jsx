@@ -19,6 +19,11 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import Subscription from './pages/Subscription'
+import SubscriptionCallback from './pages/SubscriptionCallback'
+import Profile from './pages/Profile'
+import Settings from './pages/Settings'
+import BadgeToastListener from './components/badges/BadgeToastListener'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +63,8 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
       <Route path="/logout" element={<LogoutRoute />} />
+      <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+      <Route path="/subscription/callback" element={<ProtectedRoute><SubscriptionCallback /></ProtectedRoute>} />
       <Route path="/courses/:courseId/topics/:topicId/read" element={<ProtectedRoute><TopicReader /></ProtectedRoute>} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
@@ -72,6 +79,8 @@ function AppRoutes() {
         <Route path="/revision/quiz" element={<QuizFlow />} />
         <Route path="/badges" element={<Badges />} />
         <Route path="/milestone" element={<Milestone />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   )
@@ -83,6 +92,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
+          <BadgeToastListener />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

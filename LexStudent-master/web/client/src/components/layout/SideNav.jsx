@@ -8,6 +8,7 @@ const navItems = [
 ];
 
 const bottomItems = [
+  { to: "/profile", icon: "person", label: "Profile" },
   { to: "/settings", icon: "settings", label: "Settings" },
   { to: "/logout", icon: "logout", label: "Logout" },
 ];
@@ -17,7 +18,7 @@ export default function SideNav() {
     <aside className="fixed left-0 top-0 h-screen w-64 z-50 flex flex-col h-full p-gutter bg-surface-container-low dark:bg-surface-container shadow-sm">
       <div className="mb-stack-lg">
         <h1 className="font-h2 text-h2 font-bold text-primary dark:text-primary-fixed mb-unit">LexStudent</h1>
-        <p className="font-body-md text-on-surface-variant opacity-70">Juris Doctor Program</p>
+        <p className="font-body-md text-on-surface-variant opacity-70">Bar Part II</p>
       </div>
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => (
